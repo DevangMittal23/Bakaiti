@@ -12,6 +12,7 @@ import {
   Plus,
   X,
   Loader2,
+  UsersRound,
 } from "lucide-react";
 import type { Conversation, User } from "@/types";
 import { useAuth } from "@/hooks/use-auth";
@@ -19,6 +20,7 @@ import { UserAvatar } from "@/components/shared/user-avatar";
 import { createDM } from "@/actions/conversations";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useUIStore } from "@/stores/ui-store";
 
 interface ConversationListProps {
   initialRooms?: Conversation[];
@@ -34,6 +36,7 @@ export function ConversationList({
   const { user } = useAuth();
   const router = useRouter();
   const { conversations } = useConversations();
+  const { openModal } = useUIStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const [showNewChat, setShowNewChat] = useState(false);
@@ -197,61 +200,84 @@ export function ConversationList({
       {/* Content area */}
       <div className="flex-1 overflow-y-auto pr-1 space-y-2 scrollbar-thin">
         <AnimatePresence mode="popLayout" initial={false}>
-
-          {/* NEW CHAT: Friends list */}
+          {/* NEW CHAT: Action options + Friends list */}
           {showNewChat ? (
-            filteredFriends.length > 0 ? (
-              filteredFriends.map((friend, idx) => (
-                <motion.button
-                  key={friend.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.18, delay: idx * 0.04 }}
-                  onClick={() => handleStartDM(friend.id)}
-                  disabled={startingDmFor === friend.id}
-                  className="w-full flex items-center gap-3 rounded-2xl border border-border/40 bg-surface/30 p-3.5 text-left transition-all duration-200 hover:border-accent/30 hover:bg-surface/60 hover:shadow-lg active:scale-[0.98] cursor-pointer disabled:opacity-60"
-                >
-                  <UserAvatar
-                    src={friend.avatar_url}
-                    name={friend.display_name}
-                    size="sm"
-                    isOnline={true}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-text-primary truncate">
-                      {friend.display_name}
-                    </p>
-                    <p className="text-xs text-text-muted truncate">
-                      @{friend.username}
-                    </p>
-                  </div>
-                  {startingDmFor === friend.id ? (
-                    <Loader2 className="h-4 w-4 text-accent animate-spin shrink-0" />
-                  ) : (
-                    <MessageCircle className="h-4 w-4 text-text-muted group-hover:text-accent shrink-0" />
-                  )}
-                </motion.button>
-              ))
-            ) : (
+            <>
+              {/* Action row: New Group */}
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex flex-col items-center justify-center py-16 text-center"
+                key="new-chat-actions"
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="flex gap-2 mb-1"
               >
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-surface mb-4 border border-border/50">
-                  <Users2 className="h-6 w-6 text-text-secondary" />
-                </div>
-                <h3 className="text-sm font-semibold text-text-primary">
-                  {searchQuery ? "No friends found" : "No friends yet"}
-                </h3>
-                <p className="mt-1 max-w-xs text-xs text-text-muted leading-relaxed">
-                  {searchQuery
-                    ? "Try a different name."
-                    : "Add friends on the Friends page to start chatting!"}
-                </p>
+                <button
+                  onClick={() => {
+                    setShowNewChat(false);
+                    openModal("create-group");
+                  }}
+                  className="flex flex-1 items-center gap-2 rounded-xl border border-border/50 bg-surface/40 px-3 py-2.5 text-xs font-semibold text-text-secondary hover:border-accent/40 hover:bg-surface/70 hover:text-accent transition-all duration-200 cursor-pointer"
+                >
+                  <UsersRound className="h-4 w-4 shrink-0" />
+                  New Group Chat
+                </button>
               </motion.div>
-            )
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted px-1 mb-1">Direct Messages</p>
+
+              {filteredFriends.length > 0 ? (
+                filteredFriends.map((friend, idx) => (
+                  <motion.button
+                    key={friend.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.18, delay: idx * 0.04 }}
+                    onClick={() => handleStartDM(friend.id)}
+                    disabled={startingDmFor === friend.id}
+                    className="w-full flex items-center gap-3 rounded-2xl border border-border/40 bg-surface/30 p-3.5 text-left transition-all duration-200 hover:border-accent/30 hover:bg-surface/60 hover:shadow-lg active:scale-[0.98] cursor-pointer disabled:opacity-60"
+                  >
+                    <UserAvatar
+                      src={friend.avatar_url}
+                      name={friend.display_name}
+                      size="sm"
+                      isOnline={true}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-text-primary truncate">
+                        {friend.display_name}
+                      </p>
+                      <p className="text-xs text-text-muted truncate">
+                        @{friend.username}
+                      </p>
+                    </div>
+                    {startingDmFor === friend.id ? (
+                      <Loader2 className="h-4 w-4 text-accent animate-spin shrink-0" />
+                    ) : (
+                      <MessageCircle className="h-4 w-4 text-text-muted group-hover:text-accent shrink-0" />
+                    )}
+                  </motion.button>
+                ))
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex flex-col items-center justify-center py-12 text-center"
+                >
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-surface mb-4 border border-border/50">
+                    <Users2 className="h-6 w-6 text-text-secondary" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-text-primary">
+                    {searchQuery ? "No friends found" : "No friends yet"}
+                  </h3>
+                  <p className="mt-1 max-w-xs text-xs text-text-muted leading-relaxed">
+                    {searchQuery
+                      ? "Try a different name."
+                      : "Add friends on the Friends page to start chatting!"}
+                  </p>
+                </motion.div>
+              )}
+            </>
           ) : // CONVERSATIONS LIST
           filteredConversations.length > 0 ? (
             filteredConversations.map((convo) => (

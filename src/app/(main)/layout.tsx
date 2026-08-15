@@ -3,6 +3,7 @@ import { BottomNav } from "@/components/navigation/bottom-nav";
 import { ContentContainer } from "@/components/navigation/content-container";
 import { CallModal } from "@/components/chat/call-modal";
 import { CallRoom } from "@/components/chat/call-room";
+import { ModalRenderer } from "@/components/shared/modal-renderer";
 
 export default function MainLayout({
   children,
@@ -25,6 +26,9 @@ export default function MainLayout({
       {/* Global Call Overlays */}
       <CallModal />
       <CallRoom />
+
+      {/* Global Modal Renderer (groups, etc.) */}
+      <ModalRenderer />
     </div>
   );
 }

@@ -2,13 +2,12 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Phone, Video, Info } from "lucide-react";
+import { ArrowLeft, Phone, Video } from "lucide-react";
 import { useMessages } from "@/hooks/use-messages";
 import { usePresence } from "@/hooks/use-presence";
 import { useTyping } from "@/hooks/use-typing";
 import { useCall } from "@/hooks/use-call";
 import { useAuth } from "@/hooks/use-auth";
-import { useUIStore } from "@/stores/ui-store";
 import { markConversationRead } from "@/actions/messages";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { MessageList } from "./message-list";
@@ -28,7 +27,6 @@ export function ChatRoom({
   const { isOnline } = usePresence();
   const { typingUsers, broadcastTyping } = useTyping(conversationId);
   const { startCall } = useCall();
-  const { openModal } = useUIStore();
 
   const { messages, isLoading, hasMore, loadMore, sendMessage } =
     useMessages(conversationId);
@@ -38,39 +36,46 @@ export function ChatRoom({
     markConversationRead(conversationId).catch(console.error);
   }, [conversationId, messages.length]);
 
-  const otherParticipant =
-    initialConversation.type === "dm"
-      ? initialConversation.participants?.find(
-          (p) => p.user_id !== currentUser?.id
-        )
-      : null;
+  const isGroup = initialConversation.type === "group";
+
+  const otherParticipant = !isGroup
+    ? initialConversation.participants?.find(
+        (p) => p.user_id !== currentUser?.id
+      )
+    : null;
   const otherUser = otherParticipant?.user;
 
-  const displayName =
-    initialConversation.type === "group"
-      ? initialConversation.name || "Group Chat"
-      : otherUser?.display_name || "HUDdang User";
+  // For group calls: collect all other participants' user objects
+  const groupParticipants: User[] = isGroup
+    ? (initialConversation.participants
+        ?.filter((p) => p.user_id !== currentUser?.id && p.user)
+        .map((p) => p.user as User) ?? [])
+    : [];
+
+  const displayName = isGroup
+    ? initialConversation.name || "Group Chat"
+    : otherUser?.display_name || "HUDdang User";
 
   const isUserOnline =
-    initialConversation.type === "dm" && otherUser
-      ? isOnline(otherUser.id)
-      : false;
+    !isGroup && otherUser ? isOnline(otherUser.id) : false;
 
   const handleVoiceCall = () => {
-    if (otherUser) {
+    if (isGroup) {
+      startCall(conversationId, "voice", groupParticipants);
+    } else if (otherUser) {
       startCall(conversationId, "voice", [otherUser]);
     }
   };
 
   const handleVideoCall = () => {
-    if (otherUser) {
+    if (isGroup) {
+      startCall(conversationId, "video", groupParticipants);
+    } else if (otherUser) {
       startCall(conversationId, "video", [otherUser]);
     }
   };
 
-  const handleGroupInfo = () => {
-    openModal("group-info", { conversationId, conversation: initialConversation });
-  };
+  const participantCount = initialConversation.participants?.length ?? 0;
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background-secondary/20">
@@ -87,7 +92,7 @@ export function ChatRoom({
           <div className="flex items-center gap-3 min-w-0">
             <UserAvatar
               src={
-                initialConversation.type === "group"
+                isGroup
                   ? initialConversation.avatar_url
                   : otherUser?.avatar_url
               }
@@ -101,8 +106,8 @@ export function ChatRoom({
                 {displayName}
               </p>
               <p className="text-xs text-text-muted truncate">
-                {initialConversation.type === "group"
-                  ? `${initialConversation.participants?.length || 0} participants`
+                {isGroup
+                  ? `${participantCount} participant${participantCount !== 1 ? "s" : ""}`
                   : isUserOnline
                   ? "Online"
                   : otherUser?.username
@@ -113,35 +118,24 @@ export function ChatRoom({
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Call Buttons — available for both DM and group */}
         <div className="flex items-center gap-1.5">
-          {initialConversation.type === "dm" && (
-            <>
-              <button
-                onClick={handleVoiceCall}
-                className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface hover:text-text-secondary cursor-pointer"
-                title="Voice Call"
-              >
-                <Phone className="h-4.5 w-4.5" />
-              </button>
-              <button
-                onClick={handleVideoCall}
-                className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface hover:text-text-secondary cursor-pointer"
-                title="Video Call"
-              >
-                <Video className="h-4.5 w-4.5" />
-              </button>
-            </>
-          )}
-          {initialConversation.type === "group" && (
-            <button
-              onClick={handleGroupInfo}
-              className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface hover:text-text-secondary cursor-pointer"
-              title="Group Info"
-            >
-              <Info className="h-4.5 w-4.5" />
-            </button>
-          )}
+          <button
+            onClick={handleVoiceCall}
+            disabled={isGroup && groupParticipants.length === 0}
+            className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface hover:text-text-secondary cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            title={isGroup ? "Group Voice Call" : "Voice Call"}
+          >
+            <Phone className="h-4.5 w-4.5" />
+          </button>
+          <button
+            onClick={handleVideoCall}
+            disabled={isGroup && groupParticipants.length === 0}
+            className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface hover:text-text-secondary cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            title={isGroup ? "Group Video Call" : "Video Call"}
+          >
+            <Video className="h-4.5 w-4.5" />
+          </button>
         </div>
       </div>
 

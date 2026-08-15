@@ -40,7 +40,7 @@ export function PulseSelectorInline() {
                 animate={isSelected ? { scale: [1, 1.2, 1] } : {}}
                 transition={{ duration: 1.5, repeat: isSelected ? Infinity : 0 }}
               />
-              <span className={`text-xs font-medium ${isSelected ? 'text-text-primary' : 'text-text-muted'}`}>
+              <span className={`text-[10px] sm:text-xs font-medium ${isSelected ? 'text-text-primary' : 'text-text-muted'}`}>
                 {config.label} {config.emoji}
               </span>
             </motion.button>
