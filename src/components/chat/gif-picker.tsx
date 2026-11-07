@@ -1,101 +1,142 @@
 "use client";
-
-import { useState, useEffect } from "react";
-import { Search, Image, Film, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Film, Loader2, Search, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useDebounce } from "@/hooks/use-debounce";
-
-interface GifPickerProps {
-  onSelect: (gifUrl: string) => void;
-}
-
-export function GifPicker({ onSelect }: GifPickerProps) {
-  const [isOpen, setIsOpen] = useState(false);
+type Gif = { id: string; title: string; url: string; preview: string };
+export function GifPicker({ onSelect }: { onSelect: (url: string) => void }) {
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [gifs, setGifs] = useState<{ id: string; title: string; url: string; preview: string }[]>([]);
+  const [gifs, setGifs] = useState<Gif[]>([]);
   const [loading, setLoading] = useState(false);
-  
-  const debouncedQuery = useDebounce(query, 400);
-
+  const [error, setError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  const input = useRef<HTMLInputElement>(null);
+  const term = useDebounce(query, 300);
   useEffect(() => {
-    if (!isOpen) return;
-
-    const fetchGifs = async () => {
+    if (!open) return;
+    const controller = new AbortController();
+    void (async () => {
       setLoading(true);
+      setError(null);
       try {
-        const res = await fetch(`/api/gif/search?q=${encodeURIComponent(debouncedQuery)}`);
-        if (res.ok) {
-          const data = await res.json();
-          setGifs(data.results || []);
-        }
-      } catch (err) {
-        console.error(err);
+        const response = await fetch(
+          `/api/gif/search?q=${encodeURIComponent(term)}`,
+          { signal: controller.signal },
+        );
+        if (!response.ok)
+          throw new Error(
+            response.status === 503
+              ? "GIF search is currently unavailable."
+              : "GIFs could not load. Try again.",
+          );
+        const data = await response.json();
+        if (!controller.signal.aborted) setGifs(data.results || []);
+      } catch (error) {
+        if (!controller.signal.aborted)
+          setError(
+            error instanceof Error ? error.message : "GIFs could not load. Try again.",
+          );
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
-    };
-
-    fetchGifs();
-  }, [debouncedQuery, isOpen]);
-
+    })();
+    return () => controller.abort();
+  }, [term, open, retry]);
   return (
-    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <button
-          className="rounded-lg p-2 text-text-muted hover:bg-surface hover:text-accent transition-colors cursor-pointer focus:outline-none"
-          title="Send GIF"
+          type="button"
+          aria-label="Send a GIF"
+          className="flex h-11 w-9 items-center justify-center rounded-xl text-text-secondary hover:bg-surface-container hover:text-accent"
         >
-          <Film className="h-5 w-5" />
+          <Film className="h-4 w-4" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-[300px] bg-surface border border-border shadow-xl p-3 space-y-3 rounded-xl z-50">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
+      <DropdownMenuContent
+        side="top"
+        align="start"
+        className="w-[300px] max-w-[calc(100vw-24px)] border-border bg-surface p-3"
+      >
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-3.5 h-4 w-4 text-text-secondary" />
           <input
-            type="text"
-            placeholder="Search Tenor GIFs..."
+            ref={input}
+            aria-label="Search GIFs"
+            placeholder="Find the perfect reaction"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full bg-surface-secondary border border-border/80 rounded-lg py-1.5 pl-8 pr-3 text-xs outline-none focus:border-accent"
+            className="h-11 w-full rounded-xl border border-border bg-background pl-9 pr-9 text-xs"
           />
-        </div>
-
-        <div className="h-48 overflow-y-auto scrollbar-thin">
-          {loading ? (
-            <div className="flex h-full items-center justify-center">
-              <Loader2 className="h-5 w-5 animate-spin text-accent" />
-            </div>
-          ) : gifs.length > 0 ? (
-            <div className="grid grid-cols-2 gap-1.5">
-              {gifs.map((gif) => (
-                <button
-                  key={gif.id}
-                  onClick={() => {
-                    onSelect(gif.url);
-                    setIsOpen(false);
-                  }}
-                  className="relative rounded overflow-hidden aspect-video bg-black/10 hover:opacity-85 transition-opacity cursor-pointer group"
-                >
-                  <img
-                    src={gif.preview}
-                    alt={gif.title}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="flex h-full flex-col items-center justify-center text-text-muted">
-              <Image className="h-6 w-6 mb-1" />
-              <span className="text-[10px]">No GIFs found</span>
-            </div>
+          {query && (
+            <button
+              type="button"
+              aria-label="Clear GIF search"
+              onClick={() => {
+                setQuery("");
+                input.current?.focus();
+              }}
+              className="absolute right-0 top-0 flex h-11 w-9 items-center justify-center"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           )}
         </div>
+        {loading ? (
+          <div
+            role="status"
+            className="flex min-h-32 items-center justify-center"
+          >
+            <Loader2 className="h-5 w-5 animate-spin text-accent" />
+            <span className="sr-only">Loading GIFs</span>
+          </div>
+        ) : error ? (
+          <div role="alert" className="p-4 text-center text-xs text-error">
+            <p>{error}</p>
+            <button
+              type="button"
+              onClick={() => setRetry((v) => v + 1)}
+              className="mt-2 min-h-11 font-semibold"
+            >
+              Retry
+            </button>
+          </div>
+        ) : (
+          <div className="grid max-h-64 grid-cols-2 gap-2 overflow-y-auto">
+            {gifs.map((gif) => (
+              <button
+                type="button"
+                key={gif.id}
+                aria-label={`Send GIF: ${gif.title || "reaction"}`}
+                onClick={() => {
+                  onSelect(gif.url);
+                  setOpen(false);
+                }}
+                className="overflow-hidden rounded-lg border border-border hover:border-accent"
+              >
+                <img
+                  src={gif.preview}
+                  alt={gif.title || "GIF reaction"}
+                  className="h-24 w-full object-cover"
+                  loading="lazy"
+                />
+              </button>
+            ))}
+            {!gifs.length && (
+              <p className="col-span-2 p-6 text-center text-xs text-text-secondary">
+                No GIFs found. Try another search.
+              </p>
+            )}
+          </div>
+        )}
+        <p className="mt-3 text-[10px] text-text-secondary">
+          GIFs powered by Tenor
+        </p>
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -1,14 +1,19 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 
-export default function MainTemplate({ children }: { children: React.ReactNode }) {
+export default function MainTemplate({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const reducedMotion = useReducedMotion();
   return (
     <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
-      className="w-full h-full flex-1 flex flex-col"
+      initial={reducedMotion ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: reducedMotion ? 0 : 0.18 }}
+      className="flex h-full min-h-0 w-full flex-1 flex-col"
     >
       {children}
     </motion.div>

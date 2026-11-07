@@ -22,7 +22,7 @@ export async function generateMetadata({
 
   return {
     title: conversation.name ? `${conversation.name} - Chat` : "Chat",
-    description: `Conversation on HUDdang.`,
+    description: `Conversation on Bakaiti.`,
   };
 }
 
@@ -41,10 +41,7 @@ export default async function ChatRoomPage({ params }: ChatRoomPageProps) {
 
   return (
     <ChatLayout rooms={conversations} friends={friends} activeRoomId={roomId}>
-      <ChatRoom
-        conversationId={roomId}
-        initialConversation={conversation}
-      />
+      <ChatRoom conversationId={roomId} initialConversation={conversation} />
     </ChatLayout>
   );
 }

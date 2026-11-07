@@ -1,17 +1,24 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
-import type { PulseType } from "@/types";
-import { PULSE_CONFIG } from "@/types";
+import { useRef, useState } from "react";
+import { Radio, Check, Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { PULSE_CONFIG, type PulseType } from "@/types";
+import { cn } from "@/lib/utils";
 
-interface PulsePickerProps {
+type PulsePickerProps = {
   isOpen: boolean;
   onClose: () => void;
   currentPulse: PulseType | null;
-  onSetPulse: (type: PulseType) => void;
-  onClearPulse: () => void;
-}
-
+  onSetPulse: (type: PulseType) => void | Promise<void>;
+  onClearPulse: () => void | Promise<void>;
+};
 export function PulsePicker({
   isOpen,
   onClose,
@@ -19,84 +26,112 @@ export function PulsePicker({
   onSetPulse,
   onClearPulse,
 }: PulsePickerProps) {
-  const handleSelect = async (type: PulseType) => {
-    onSetPulse(type);
-    onClose();
+  const [pending, setPending] = useState<PulseType | "clear" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const inFlight = useRef(false);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const choosePulse = async (type: PulseType | "clear") => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setPending(type);
+    setError(null);
+    try {
+      if (type === "clear") await onClearPulse();
+      else await onSetPulse(type);
+      onClose();
+    } catch {
+      setError("Your Pulse could not be updated. Please try again.");
+    } finally {
+      inFlight.current = false;
+      setPending(null);
+    }
   };
-
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          <motion.div
-            className="fixed inset-0 bg-black/40 z-40"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-          />
-          <motion.div
-            className="absolute bottom-full left-0 mb-3 z-50 
-                       bg-[#111116] border border-white/10 rounded-2xl p-2
-                       shadow-2xl min-w-[200px]"
-            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open && !pending) onClose();
+      }}
+    >
+      <DialogContent
+        onOpenAutoFocus={() => {
+          returnFocus.current =
+            document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null;
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          if (returnFocus.current?.isConnected) returnFocus.current.focus();
+          else {
+            const trigger = Array.from(
+              document.querySelectorAll<HTMLButtonElement>(
+                '[aria-label="Set your Pulse"], [aria-label="Open your account menu"]',
+              ),
+            ).find((element) => element.getClientRects().length > 0);
+            trigger?.focus();
+          }
+        }}
+        className="max-w-sm rounded-2xl border-border bg-surface p-6"
+      >
+        <span className="mb-1 flex h-11 w-11 items-center justify-center rounded-xl bg-secondary/10 text-secondary">
+          <Radio className="h-5 w-5" />
+        </span>
+        <DialogTitle className="font-display text-2xl tracking-tight">
+          What&apos;s your frequency?
+        </DialogTitle>
+        <DialogDescription className="text-sm leading-relaxed text-text-secondary">
+          Give your circle a little context. Your Pulse clears after 4 hours.
+        </DialogDescription>
+        <div className="mt-2 space-y-2" aria-busy={pending !== null}>
+          {(Object.keys(PULSE_CONFIG) as PulseType[]).map((type) => (
+            <button
+              type="button"
+              key={type}
+              disabled={pending !== null}
+              onClick={() => {
+                void choosePulse(type);
+              }}
+              aria-pressed={currentPulse === type}
+              className={cn(
+                "flex min-h-14 w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors disabled:opacity-50",
+                currentPulse === type
+                  ? "border-accent bg-accent/10"
+                  : "border-border hover:border-outline-variant hover:bg-surface-container",
+              )}
+            >
+              <span className="text-lg" aria-hidden="true">
+                {PULSE_CONFIG[type].emoji}
+              </span>
+              <span className="flex-1 text-sm font-semibold">
+                {PULSE_CONFIG[type].label}
+              </span>
+              {pending === type ? (
+                <Loader2
+                  className="h-4 w-4 animate-spin"
+                  aria-label="Updating Pulse"
+                />
+              ) : currentPulse === type ? (
+                <Check className="h-4 w-4 text-accent" />
+              ) : null}
+            </button>
+          ))}
+        </div>
+        <div className="min-h-5 text-xs text-error" aria-live="polite">
+          {error && <p role="alert">{error}</p>}
+        </div>
+        {currentPulse && (
+          <Button
+            variant="outline"
+            disabled={pending !== null}
+            onClick={() => {
+              void choosePulse("clear");
+            }}
           >
-            <p className="text-xs text-text-muted px-3 py-2 font-medium">
-              Set your Pulse
-            </p>
-            {(Object.keys(PULSE_CONFIG) as PulseType[]).map((type) => {
-              const config = PULSE_CONFIG[type];
-              const isActive = currentPulse === type;
-              return (
-                <motion.button
-                  key={type}
-                  whileHover={{ x: 2 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => handleSelect(type)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
-                             transition-colors cursor-pointer ${
-                               isActive
-                                 ? "bg-white/[0.06]"
-                                 : "hover:bg-white/[0.04]"
-                             }`}
-                >
-                  <div
-                    className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{
-                      backgroundColor: config.color,
-                      boxShadow: `0 0 8px ${config.glowColor}`,
-                    }}
-                  />
-                  <span className="text-sm text-white">
-                    {config.label} {config.emoji}
-                  </span>
-                  {isActive && (
-                    <span className="ml-auto text-xs text-purple-400">
-                      Active
-                    </span>
-                  )}
-                </motion.button>
-              );
-            })}
-            {currentPulse && (
-              <button
-                onClick={() => {
-                  onClearPulse();
-                  onClose();
-                }}
-                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-white/[0.04]
-                           text-xs text-text-muted mt-1 border-t border-white/[0.06] cursor-pointer"
-              >
-                Clear Pulse
-              </button>
-            )}
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+            {pending === "clear" ? "Clearing…" : "Clear my Pulse"}
+          </Button>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
-

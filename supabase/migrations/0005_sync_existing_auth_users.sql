@@ -1,10 +1,8 @@
 -- ============================================================
--- HUDdang — Migration 005: Re-sync auth users into public.users
+-- Bakaiti — Migration 0005: Fill missing profiles for existing auth accounts
 -- ============================================================
--- This fixes the issue where the old public.users table was dropped
--- (along with all profile data) but auth.users still has existing accounts.
--- The handle_new_user trigger only fires on NEW signups, so existing
--- auth users need to be manually re-inserted.
+-- Only fills missing profiles. Existing profiles and account data are preserved.
+-- Existing installations may record this migration under version 005; see ../README.md.
 -- ============================================================
 
 INSERT INTO public.users (id, username, display_name, avatar_url)
@@ -15,4 +13,5 @@ SELECT
   au.raw_user_meta_data->>'avatar_url'
 FROM auth.users au
 LEFT JOIN public.users pu ON pu.id = au.id
-WHERE pu.id IS NULL;
+WHERE pu.id IS NULL
+ON CONFLICT (id) DO NOTHING;

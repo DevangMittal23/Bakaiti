@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
-import { getConversations, createDM as getOrCreateDM } from "@/actions/conversations";
+import {
+  getConversations,
+  createDM as getOrCreateDM,
+} from "@/actions/conversations";
 import { getUserByUsername } from "@/actions/users";
 import { getFriends } from "@/actions/friendships";
 import { ChatLayout } from "@/components/chat/chat-layout";
@@ -7,7 +10,7 @@ import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Chat",
-  description: "Your conversations on HUDdang.",
+  description: "Your conversations on Bakaiti.",
 };
 
 interface ChatPageProps {

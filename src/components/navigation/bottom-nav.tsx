@@ -2,119 +2,77 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
-import { Home, Search, PlusSquare, Bell, User, Users } from "lucide-react";
+import {
+  MessageCircle,
+  PanelsTopLeft,
+  Compass,
+  Users,
+  Bell,
+} from "lucide-react";
+import { useChatStore } from "@/stores/chat-store";
+import { useNotificationStore } from "@/stores/notification-store";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/use-auth";
-import { useNotifications } from "@/hooks/use-notifications";
-import { useConversations } from "@/hooks/use-conversations";
-import { getPendingRequests } from "@/actions/friendships";
-import { useEffect, useState } from "react";
 
 const navItems = [
-  { href: "/feed", icon: Home, label: "Feed", badgeKey: null },
-  { href: "/friends", icon: Users, label: "Friends", badgeKey: "friends" as const },
-  { href: "/feed?create=true", icon: PlusSquare, label: "Create", isCreate: true, badgeKey: null },
-  { href: "/notifications", icon: Bell, label: "Alerts", badgeKey: "notifications" as const },
-  { href: "/profile", icon: User, label: "Profile", isDynamic: true, badgeKey: null },
+  { href: "/chat", icon: MessageCircle, label: "Chats" },
+  { href: "/feed", icon: PanelsTopLeft, label: "Feed" },
+  { href: "/discover", icon: Compass, label: "Discover" },
+  { href: "/friends", icon: Users, label: "Circle" },
+  { href: "/notifications", icon: Bell, label: "Activity" },
 ];
-
 export function BottomNav() {
   const pathname = usePathname();
-  const { user } = useAuth();
-  
-  // Real-time unread counts automatically synced via hooks
-  const { unreadCount: notifUnread } = useNotifications();
-  const { totalUnread: chatUnread } = useConversations();
-  const [friendsUnread, setFriendsUnread] = useState(0);
-
-  // Fetch pending requests count on mount
-  useEffect(() => {
-    async function fetchFriendsCount() {
-      try {
-        const pending = await getPendingRequests();
-        setFriendsUnread(pending?.length || 0);
-      } catch (err) {
-        console.error(err);
-      }
-    }
-    if (user?.id) {
-      fetchFriendsCount();
-    }
-  }, [user?.id]);
-
-  const getBadgeCount = (key: "chat" | "notifications" | "friends" | null) => {
-    if (key === "notifications") return notifUnread;
-    if (key === "chat") return chatUnread;
-    if (key === "friends") return friendsUnread;
-    return 0;
-  };
-
+  const chatUnread = useChatStore((state) => state.totalUnread);
+  const notifUnread = useNotificationStore((state) => state.unreadCount);
+  if (pathname.startsWith("/chat/")) return null;
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/80 backdrop-blur-xl lg:hidden"
-      role="navigation"
-      aria-label="Main navigation"
+      aria-label="Mobile navigation"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 pb-safe [backdrop-filter:blur(var(--glass-blur))] lg:hidden"
     >
-      <div className="mx-auto flex h-16 max-w-lg items-center justify-around px-2">
-        {navItems.map((item) => {
-          const href = item.isDynamic && user
-            ? `/profile/${user.username}`
-            : item.href;
-          const isActive = item.isDynamic
-            ? pathname.startsWith("/profile")
-            : pathname.startsWith(item.href.split("?")[0]) && !item.isCreate;
-          const badgeCount = getBadgeCount(item.badgeKey);
-
+      <div className="mx-auto flex h-[72px] max-w-lg items-center px-2">
+        {navItems.map(({ href, icon: Icon, label }) => {
+          const active = pathname === href || pathname.startsWith(`${href}/`);
+          const count =
+            href === "/chat"
+              ? chatUnread
+              : href === "/notifications"
+                ? notifUnread
+                : 0;
           return (
             <Link
-              key={item.label}
+              key={href}
               href={href}
+              aria-label={count ? `${label}, ${count} unread` : label}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "relative flex flex-col items-center gap-1 rounded-xl px-3 py-1.5 transition-colors",
-                item.isCreate
+                "relative flex min-h-12 flex-1 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold transition-colors",
+                active
                   ? "text-accent"
-                  : isActive
-                  ? "text-text-primary"
-                  : "text-text-muted"
+                  : "text-text-secondary hover:bg-surface hover:text-text-primary",
               )}
-              aria-label={item.label}
-              aria-current={isActive ? "page" : undefined}
             >
-              {isActive && !item.isCreate && (
-                <motion.div
-                  layoutId="bottom-nav-active"
-                  className="absolute -top-px left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-accent"
-                  transition={{
-                    type: "spring",
-                    stiffness: 400,
-                    damping: 30,
-                  }}
-                />
-              )}
-              {item.isCreate ? (
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 transition-colors active:bg-accent/25">
-                  <item.icon className="h-5 w-5" />
-                </div>
-              ) : (
-                <>
-                  <div className="relative">
-                    <item.icon className="h-5 w-5" />
-                    {badgeCount > 0 && (
-                      <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-bold text-white shadow-lg shadow-accent/30">
-                        {badgeCount > 99 ? "99+" : badgeCount}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[10px] font-medium">{item.label}</span>
-                </>
-              )}
+              <span
+                className={cn(
+                  "relative flex h-7 w-11 items-center justify-center rounded-lg",
+                  active && "bg-accent/15",
+                )}
+              >
+                <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 1.8} />
+                {count > 0 && (
+                  <span
+                    className="absolute -right-1 -top-1 min-w-4 rounded-full bg-secondary px-1 text-center text-[9px] font-bold text-on-secondary"
+                    aria-hidden="true"
+                  >
+                    {count > 99 ? "99+" : count}
+                  </span>
+                )}
+              </span>
+              <span>{label}</span>
             </Link>
           );
         })}
       </div>
-      {/* Safe area padding for iOS */}
-      <div className="h-[env(safe-area-inset-bottom)]" />
     </nav>
   );
 }

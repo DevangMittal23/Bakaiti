@@ -3,7 +3,8 @@
 import { useCallback } from "react";
 import { useCallStore } from "@/stores/call-store";
 import { useAuthStore } from "@/stores/auth-store";
-import type { CallType, User } from "@/types";
+import type { CallParticipant, CallType } from "@/types";
+import { toast } from "sonner";
 
 export function useCall() {
   const { user: currentUser } = useAuthStore();
@@ -22,10 +23,8 @@ export function useCall() {
   } = useCallStore();
 
   const startCall = useCallback(
-    async (conversationId: string, callType: CallType, participants: User[]) => {
+    async (conversationId: string, callType: CallType, participants: CallParticipant[]) => {
       if (!currentUser) return;
-      
-      const roomName = `room_${conversationId}_${Date.now()}`;
       
       try {
         // Fetch LiveKit room token from API
@@ -35,17 +34,18 @@ export function useCall() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            roomName,
             conversationId,
             callType,
+            inviteParticipants: true,
           }),
         });
 
-        if (!response.ok) {
-          throw new Error("Failed to get call token");
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || "Unable to authorize the call");
+        const { token, roomName } = result;
+        if (typeof token !== "string" || typeof roomName !== "string") {
+          throw new Error("The call service returned an invalid response");
         }
-
-        const { token } = await response.json();
         
         setActiveCall({
           roomName,
@@ -55,39 +55,33 @@ export function useCall() {
           token,
         });
 
-        // Set up real-time database signaling / notifications for participants
-        // This is handled by sending missed/incoming call notifications via the DB
-        const supabase = (await import("@/lib/supabase/client")).createClient();
-        const notificationInserts = participants.map((p) => ({
-          recipient_id: p.id,
-          actor_id: currentUser.id,
-          type: "message" as const, // Or custom type
-          entity_type: "conversation" as const,
-          entity_id: conversationId,
-          body: `is calling you (${callType} call)`,
-        }));
-
-        await supabase.from("notifications").insert(notificationInserts);
-
       } catch (err) {
         console.error("Failed to start call", err);
+        toast.error(err instanceof Error ? err.message : "Unable to start the call. Try again.");
       }
     },
     [currentUser, setActiveCall]
   );
 
   const joinCall = useCallback(
-    async (roomName: string, conversationId: string, callType: CallType, token: string) => {
-      setActiveCall({
-        roomName,
-        conversationId,
-        callType,
-        participants: [],
-        token,
-      });
-      setIncomingCall(null);
+    async (conversationId: string, callType: CallType) => {
+      try {
+        // Each participant must receive a token for their own authenticated identity.
+        const response = await fetch("/api/livekit/token", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ conversationId, callType }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || "Unable to join this call");
+        const { roomName, token } = result;
+        if (typeof token !== "string" || typeof roomName !== "string") throw new Error("The call service returned an invalid response");
+        setActiveCall({ roomName, conversationId, callType, participants: incomingCall?.participants ?? [], token });
+        setIncomingCall(null);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Unable to join this call. Try again.");
+      }
     },
-    [setActiveCall, setIncomingCall]
+    [incomingCall, setActiveCall, setIncomingCall]
   );
 
   const rejectIncomingCall = useCallback(async () => {

@@ -1,148 +1,17 @@
 "use client";
-
-import { useState } from "react";
-import { UserAvatar } from "@/components/shared/user-avatar";
-import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, UserMinus, Search, Users } from "lucide-react";
-import { createDM as getOrCreateDM } from "@/actions/conversations";
-import { useRouter } from "next/navigation";
+import {useRef,useState} from "react";
 import Link from "next/link";
-import type { User } from "@/types";
-import { toast } from "sonner";
-import { SignalBadge } from "@/components/shared/signal-badge";
-
-interface FriendListProps {
-  friends: User[];
-  onRemoveFriend: (friendId: string) => Promise<any>;
-}
-
-export function FriendList({ friends, onRemoveFriend }: FriendListProps) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [actioningId, setActioningId] = useState<string | null>(null);
-  const router = useRouter();
-
-  const filteredFriends = friends.filter(
-    (friend) =>
-      friend.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      friend.username.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleStartChat = async (friendId: string) => {
-    setActioningId(friendId);
-    try {
-      const res = await getOrCreateDM(friendId);
-      if (res && res.conversation) {
-        toast.success("Opening chat room...");
-        router.push(`/chat/${res.conversation.id}`);
-      } else if (res && res.error) {
-        toast.error(res.error);
-      }
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to open chat room");
-      console.error("Error opening DM room:", err);
-    } finally {
-      setActioningId(null);
-    }
-  };
-
-  if (friends.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center p-8 text-center glass-card">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/10 mb-4 ring-8 ring-accent/5">
-          <Users className="h-8 w-8 text-accent" />
-        </div>
-        <h3 className="text-lg font-semibold text-text-primary">No friends yet</h3>
-        <p className="mt-2 text-sm text-text-secondary max-w-sm">
-          Discover interesting people on HUDdang and send them friend requests to stay connected!
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      {/* Search Input */}
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
-        <input
-          type="text"
-          placeholder="Search friends..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full rounded-xl border border-border bg-surface-secondary py-3 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
-        />
-      </div>
-
-      {/* Friends Cards */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <AnimatePresence mode="popLayout">
-          {filteredFriends.map((friend, idx) => (
-            <motion.div
-              key={friend.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.3, delay: idx * 0.05 }}
-              layout
-              className="glass-card flex items-center justify-between p-4 transition-all duration-200 hover:border-accent/10 hover:shadow-lg"
-            >
-              <Link
-                href={`/profile/${friend.username}`}
-                className="flex items-center gap-3 min-w-0 group"
-              >
-                <UserAvatar
-                  src={friend.avatar_url}
-                  name={friend.display_name}
-                  isOnline={true}
-                  size="sm"
-                  pulseType={friend.pulse_type}
-                />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-sm text-text-primary truncate group-hover:text-accent transition-colors">
-                      {friend.display_name}
-                    </p>
-                    <SignalBadge
-                      userId={friend.id}
-                      variant="compact"
-                      staticScore={friend.signal_score}
-                    />
-                  </div>
-                  <p className="text-xs text-text-muted truncate">
-                    @{friend.username}
-                  </p>
-                </div>
-              </Link>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  onClick={() => handleStartChat(friend.id)}
-                  disabled={actioningId === friend.id}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/10 text-accent transition-all duration-200 hover:bg-accent hover:text-white active:scale-95 disabled:opacity-50 cursor-pointer"
-                  title="Send Message"
-                >
-                  <MessageSquare className="h-4 w-4" />
-                </button>
-                
-                <button
-                  onClick={() => onRemoveFriend(friend.id)}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-error/10 text-error transition-all duration-200 hover:bg-error hover:text-white active:scale-95 cursor-pointer"
-                  title="Remove Friend"
-                >
-                  <UserMinus className="h-4 w-4" />
-                </button>
-              </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-
-        {filteredFriends.length === 0 && searchQuery && (
-          <div className="col-span-full py-8 text-center text-sm text-text-muted">
-            No friends match your search.
-          </div>
-        )}
-      </div>
-    </div>
-  );
+import {Loader2,MessageCircle,Search,UserMinus,Users,X} from "lucide-react";
+import {createDM} from "@/actions/conversations";
+import {useRouter} from "next/navigation";
+import {UserAvatar} from "@/components/shared/user-avatar";
+import {Dialog,DialogContent,DialogDescription,DialogTitle} from "@/components/ui/dialog";
+import {Button} from "@/components/ui/button";
+import type {User} from "@/types";
+export function FriendList({friends,onRemoveFriend}:{friends:User[];onRemoveFriend:(friendId:string)=>Promise<unknown>}){
+ const[query,setQuery]=useState("");const[pending,setPending]=useState<string|null>(null);const[error,setError]=useState<string|null>(null);const[remove,setRemove]=useState<User|null>(null);const input=useRef<HTMLInputElement>(null);const router=useRouter();
+ const startChat=async(id:string)=>{if(pending)return;setPending(id);setError(null);try{const result=await createDM(id);if(result.error)throw new Error(result.error);if(result.conversation)router.push(`/chat/${result.conversation.id}`);}catch(failure){setError(failure instanceof Error?failure.message:"Could not open the conversation. Try again.");}finally{setPending(null);}};
+ const confirmRemove=async()=>{if(!remove||pending)return;setPending(remove.id);setError(null);try{const result=await onRemoveFriend(remove.id);if(result&&typeof result==="object"&&"error"in result&&result.error)throw new Error(String(result.error));setRemove(null);}catch(failure){setError(failure instanceof Error?failure.message:"Your connection could not be removed. Try again.");}finally{setPending(null);}};
+ const people=friends.filter(friend=>`${friend.display_name} ${friend.username}`.toLowerCase().includes(query.trim().toLowerCase()));
+ return <div className="space-y-5"><div className="relative"><Search className="absolute left-4 top-3.5 h-4 w-4 text-text-secondary" /><input ref={input} aria-label="Search your circle" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Find a familiar face" className="h-11 w-full rounded-xl border border-border bg-surface pl-11 pr-12 text-sm" />{query&&<button type="button" aria-label="Clear friend search" onClick={()=>{setQuery("");input.current?.focus();}} className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center text-text-secondary"><X className="h-4 w-4" /></button>}</div>{error&&!remove&&<p role="alert" className="text-xs text-error">{error}</p>}<div className="space-y-2">{people.map(friend=><div key={friend.id} className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-4"><Link href={`/profile/${friend.username}`} aria-label={`View ${friend.display_name}'s profile`}><UserAvatar src={friend.avatar_url} name={friend.display_name} size="md" /></Link><Link href={`/profile/${friend.username}`} className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold hover:text-accent">{friend.display_name}</span><span className="mt-1 block truncate text-xs text-text-secondary">@{friend.username}</span></Link><button type="button" aria-label={`Message ${friend.display_name}`} disabled={pending!==null} onClick={()=>void startChat(friend.id)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent hover:bg-accent/20 disabled:opacity-40">{pending===friend.id?<Loader2 className="h-4 w-4 animate-spin" />:<MessageCircle className="h-4 w-4" />}</button><button type="button" aria-label={`Remove ${friend.display_name} from your circle`} disabled={pending!==null} onClick={()=>{setRemove(friend);setError(null);}} className="flex h-11 w-10 shrink-0 items-center justify-center rounded-xl text-text-secondary hover:bg-error/10 hover:text-error disabled:opacity-40"><UserMinus className="h-4 w-4" /></button></div>)}</div>{!people.length&&<div className="rounded-2xl border border-dashed border-border px-5 py-12 text-center"><Users className="mx-auto mb-4 h-8 w-8 text-accent" /><h2 className="font-display text-xl font-semibold">{query?"No matching faces.":"Your circle starts with a hello."}</h2><p className="mt-2 text-sm text-text-secondary">{query?"Try another name or clear the search.":"Discover your people and send your first friend request."}</p>{!query&&<Link href="/discover" className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-accent">Find your people</Link>}</div>}<Dialog open={remove!==null} onOpenChange={open=>{if(!open&&!pending)setRemove(null);}}><DialogContent><DialogTitle>Remove {remove?.display_name}?</DialogTitle><DialogDescription>They will leave your circle. You can send a new friend request later.</DialogDescription>{error&&<p role="alert" className="text-xs text-error">{error}</p>}<div className="mt-4 flex justify-end gap-2"><Button autoFocus variant="outline" disabled={pending!==null} onClick={()=>setRemove(null)}>Keep connection</Button><Button variant="destructive" disabled={pending!==null} onClick={()=>void confirmRemove()}>{pending&&<Loader2 className="mr-2 h-4 w-4 animate-spin" />}Remove friend</Button></div></DialogContent></Dialog></div>;
 }

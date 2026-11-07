@@ -1,12 +1,18 @@
 {
-  "name": "huddang",
+  "name": "bakaiti",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "preview": "node scripts/preview.mjs",
+    "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:db": "node scripts/check-database.mjs",
+    "test:security": "node scripts/check-security.mjs",
+    "test:auth": "node scripts/check-auth.mjs",
+    "test:functionality": "node scripts/check-functionality.mjs",
+    "test:production": "node scripts/check-production.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -26,7 +32,7 @@
     "livekit-client": "^2.20.1",
     "livekit-server-sdk": "^2.17.0",
     "lucide-react": "^1.17.0",
-    "next": "16.2.6",
+    "next": "16.4.3",
     "open-graph-scraper": "^6.12.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -40,12 +46,13 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.12",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.6",
+    "eslint-config-next": "16.4.3",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

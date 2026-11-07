@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { PulseType } from "@/types";
 
 export async function setPulse(pulseType: PulseType) {
+  if (!["chill", "active", "busy", "hyped"].includes(pulseType)) throw new Error("Choose a valid Pulse");
   const supabase = await createClient();
   const {
     data: { user },

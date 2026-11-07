@@ -20,7 +20,7 @@ CREATE INDEX idx_users_signal_score ON public.users(signal_score DESC);
 -- SIGNAL SCORE HISTORY (for the 7-day rolling window calculation
 -- and optional "trending up/down" indicator on profile)
 CREATE TABLE public.signal_score_history (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   score INTEGER NOT NULL CHECK (score >= 0 AND score <= 1000),
   calculated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,

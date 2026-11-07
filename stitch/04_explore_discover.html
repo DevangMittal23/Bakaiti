@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100vw;margin:0;padding:0;background-color:#08080C;}body{overscroll-behavior:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "surface-dim": "#131317", "inverse-on-surface": "#303035", "secondary-fixed-dim": "#4edea3", "on-primary-fixed": "#2c0051", "surface-container-highest": "#353439", "on-tertiary-fixed": "#001a42", "on-error-container": "#ffdad6", "on-surface-variant": "#cfc2d6", "surface-container-lowest": "#0e0e12", "surface-tint": "#ddb7ff", "primary": "#ddb7ff", "surface-bright": "#39393e", "on-secondary-fixed-variant": "#005236", "on-tertiary": "#002e6a", "inverse-primary": "#842bd2", "on-tertiary-fixed-variant": "#004395", "inverse-surface": "#e4e1e8", "tertiary-fixed-dim": "#adc6ff", "surface-container-low": "#1b1b20", "secondary": "#4edea3", "tertiary-container": "#4d8eff", "on-primary-fixed-variant": "#6900b3", "on-primary-container": "#400071", "on-secondary-fixed": "#002113", "on-surface": "#e4e1e8", "outline": "#988d9f", "surface-container-high": "#2a292e", "on-error": "#690005", "surface-variant": "#353439", "background": "#131317", "surface": "#131317", "on-background": "#e4e1e8", "on-secondary-container": "#00311f", "on-tertiary-container": "#00285d", "primary-fixed-dim": "#ddb7ff", "surface-container": "#1f1f24", "error-container": "#93000a", "primary-fixed": "#f0dbff", "secondary-fixed": "#6ffbbe", "on-secondary": "#003824", "secondary-container": "#00a572", "error": "#ffb4ab", "tertiary": "#adc6ff", "on-primary": "#490080", "outline-variant": "#4d4354", "primary-container": "#b76dff", "tertiary-fixed": "#d8e2ff" }, borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, spacing: { "space-2xl": "2rem", "nav-height": "4.5rem", "space-lg": "1.25rem", "space-sm": "0.75rem", "space-md": "1rem", "space-2xs": "0.25rem", "space-xl": "1.5rem", "gutter-mobile": "1rem", "space-3xl": "2.5rem", "space-xs": "0.5rem", "margin-mobile": "1rem" }, fontFamily: { "body-sm": ["Plus Jakarta Sans"], "label-sm": ["Space Grotesk"], "chat-bubble": ["Plus Jakarta Sans"], "body-lg": ["Plus Jakarta Sans"], "display-lg": ["Space Grotesk"], "headline-md": ["Space Grotesk"], "headline-lg": ["Space Grotesk"], "label-md": ["Space Grotesk"], "display-lg-mobile": ["Space Grotesk"], "body-md": ["Plus Jakarta Sans"], "headline-sm": ["Space Grotesk"], "energy-counter": ["Space Grotesk"] }, fontSize: { "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }], "label-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.06em", "fontWeight": "700" }], "chat-bubble": ["15px", { "lineHeight": "21px", "fontWeight": "400" }], "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }], "display-lg": ["40px", { "lineHeight": "48px", "letterSpacing": "-0.03em", "fontWeight": "700" }], "headline-md": ["22px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }], "headline-lg": ["28px", { "lineHeight": "34px", "letterSpacing": "-0.02em", "fontWeight": "600" }], "label-md": ["13px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "600" }], "display-lg-mobile": ["32px", { "lineHeight": "38px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "headline-sm": ["18px", { "lineHeight": "24px", "fontWeight": "600" }], "energy-counter": ["16px", { "lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "700" }] } } } };</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface-container-lowest text-on-surface font-body-md flex flex-col min-h-screen antialiased select-none selection:bg-primary-container selection:text-on-primary"><header class="fixed top-0 w-full z-50 pt-safe bg-surface-container-lowest/80 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.4)]"><div class="h-16 px-margin-mobile flex items-center justify-between"><div class="flex items-center gap-space-xs"><img alt="HUDdang Neon Wordmark Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1X1rQYov-B-voMZvmPfe0oRJZ1plZlrA2qp3EhHAEG0YV4x4kcmTxVDHG9fTxgELp4LYECiX-Rr5PgNL_Ks7mOSnA_yZ-jv5oy2WN-6IbxJhKhqkcYqhSDQ9AUgQVdjzpY47pSp0CQiGZar0nusx300FHjlcvwPxGZoplZwbRMHwOvpz2fUO8fLqrjzHeYiJA6ZG79KVUyLR3lP-HghVBOJOnbHWsmyavFou1t3KvfgF7jyA38jciiVgWNs"/><span class="text-primary font-headline-sm tracking-tight">HUDdang</span></div><h1 class="text-on-surface font-label-md uppercase tracking-wider hidden sm:block">Explore Trending</h1><div class="flex items-center gap-space-xs"><a class="relative w-11 h-11 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface transition-colors" data-path="activity-feed" href="#"><span class="material-symbols-outlined text-[24px]">notifications</span><span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(183,109,255,0.9)]"></span></a><a class="relative p-0.5 rounded-full ring-2 ring-primary ring-offset-2 ring-offset-surface-container-lowest shadow-[0_0_12px_rgba(183,109,255,0.6)] flex items-center justify-center" data-path="my-profile" href="#"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9lpk89RV6sPTCEwaUoQ9Yuc5W6LcwLhG4Ml4qqrDA0Qu-UIYRbJQ_NfNjj9N_7T77orqMnX1KpFJXOQlSnSL0ftQeJinf3NadkR4JW9jJg3A5-SHvhHGOk4dSXDOn8AxsUhTs2WBHn7jkBsWuyMMKNqnCERH0NQijDVHFHHG891SJiM_X-Tq6Eg0vbmqx1jKOtGmTErb0mIlYFXGzLpZwiwSb9kqL_kM2ZxZxlgtx72hhxw-755Cq2w"/></a></div></div></header><main class="flex flex-col relative w-full pt-16 pb-28 bg-surface-container-lowest flex-1"><div class="flex flex-col w-full px-margin-mobile gap-space-xl">
+<!-- Search & Filter Ribbon -->
+<div class="relative flex items-center w-full mt-space-xs">
+<div class="relative w-full flex items-center">
+<span class="material-symbols-outlined absolute left-space-md text-outline text-[20px] pointer-events-none">search</span>
+<input class="w-full h-12 pl-11 pr-10 rounded-full bg-surface-container-high text-on-surface placeholder:text-outline font-body-md shadow-inner focus:outline-none focus:ring-1 focus:ring-primary focus:shadow-[0_0_16px_rgba(221,183,255,0.35)] transition-all" placeholder="Search crews, secret spots, live audio..." type="text"/>
+<button class="absolute right-space-xs w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">tune</span>
+</button>
+</div>
+</div>
+<!-- Top Section: Blazing Right Now -->
+<section class="flex flex-col gap-space-sm w-full">
+<div class="flex items-end justify-between">
+<div>
+<div class="flex items-center gap-1.5">
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight">Blazing Right Now</h2>
+<span class="text-[18px] animate-pulse">🔥</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Highest energy nightlife &amp; night owls active this minute</p>
+</div>
+<span class="font-label-sm text-label-sm text-primary uppercase tracking-wider flex items-center gap-0.5">
+        Live <span class="w-1.5 h-1.5 rounded-full bg-secondary animate-ping ml-0.5"></span>
+</span>
+</div>
+<!-- Horizontal Carousel -->
+<div class="flex gap-space-sm overflow-x-auto pb-2 -mx-margin-mobile px-margin-mobile no-scrollbar scroll-smooth">
+<!-- User 1: Leo Vance -->
+<div class="relative shrink-0 w-[148px] rounded-xl bg-surface-container-low p-space-sm flex flex-col items-center text-center shadow-lg group hover:bg-surface-container transition-all">
+<div class="relative my-1">
+<div class="w-14 h-14 rounded-full p-0.5 shadow-[0_0_14px_rgba(78,222,163,0.7)] bg-secondary flex items-center justify-center">
+<img class="w-full h-full rounded-full object-cover" data-alt="Intense neon nightclub portrait of a male techno DJ wearing dark streetwear under pulsing lime green and ultraviolet strobes in a foggy subterranean venue." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCGBnVZzaJeb4Po3PTSJ95dt4YKANDEgE6kCShPxcLHscAZd9TtVWWeEHZmKbU3SfuKvFrTdbZmVcpRO-Y0OF74V9egU9HY8T25vInpX2U5YLuL_3lahQR0ypCyTjME7E8ObglAOVHkSgKqFDS3uR-6Cb1_o4Qc-Xn2xDraBlw3Bx1UeeZQJTx-N4DjZ8JIfOH_98NB6msbYvCUxzLXEuMxKeqJJYhykhF-nrsQ2pOequTuvdCSq8a20w"/>
+</div>
+<span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-secondary shadow-[0_0_8px_rgba(78,222,163,0.9)] border-2 border-surface-container-lowest"></span>
+</div>
+<div class="mt-space-xs w-full flex flex-col items-center">
+<span class="font-label-md text-label-md text-on-surface font-semibold truncate w-full">Leo Vance</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate w-full text-[11px]">@leov</span>
+</div>
+<div class="mt-2 w-full flex items-center justify-center">
+<span class="font-energy-counter text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary shadow-[0_0_8px_rgba(78,222,163,0.3)]">
+            ⚡ 988
+          </span>
+</div>
+<span class="mt-2 font-body-sm text-body-sm text-on-surface-variant text-[11px] line-clamp-1 italic text-center">
+          DJing @ Unter
+        </span>
+</div>
+<!-- User 2: Chloe Chen -->
+<div class="relative shrink-0 w-[148px] rounded-xl bg-surface-container-low p-space-sm flex flex-col items-center text-center shadow-lg group hover:bg-surface-container transition-all">
+<div class="relative my-1">
+<div class="w-14 h-14 rounded-full p-0.5 shadow-[0_0_14px_rgba(221,183,255,0.7)] bg-primary flex items-center justify-center">
+<img class="w-full h-full rounded-full object-cover" data-alt="Chic East Asian woman with tinted cyberpunk sunglasses basking in vivid violet neon lighting inside an energetic warehouse boiler room party." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBYat9GePhV4NhVXT6UWRhNLh4ewKxzmJBncyJhRvS2YS72ScfcNUGi1FcpG0Y0t3tLLy3fTssTh0GJifvi_vZoiI7SbykEsIl8po4roax-2wXJIOvpPwLcAetKJxNyIOd81YBNEtvIrXVPiljI1SFD0tcHYYu-ZZYVcFkDFkBHGZRprQDivY-22x_Mok7GV50VW0mdRgsGTfqXAEVVAUSBUtt8CM30qTOdY32ceUbIHE9REyXc4uZIZQ"/>
+</div>
+<span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-primary shadow-[0_0_8px_rgba(221,183,255,0.9)] border-2 border-surface-container-lowest"></span>
+</div>
+<div class="mt-space-xs w-full flex flex-col items-center">
+<span class="font-label-md text-label-md text-on-surface font-semibold truncate w-full">Chloe Chen</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate w-full text-[11px]">@chloec</span>
+</div>
+<div class="mt-2 w-full flex items-center justify-center">
+<span class="font-energy-counter text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-primary-container/20 text-primary shadow-[0_0_8px_rgba(221,183,255,0.3)]">
+            ⚡ 915
+          </span>
+</div>
+<span class="mt-2 font-body-sm text-body-sm text-on-surface-variant text-[11px] line-clamp-1 italic text-center">
+          Boiler Room afters
+        </span>
+</div>
+<!-- User 3: Jax River -->
+<div class="relative shrink-0 w-[148px] rounded-xl bg-surface-container-low p-space-sm flex flex-col items-center text-center shadow-lg group hover:bg-surface-container transition-all">
+<div class="relative my-1">
+<div class="w-14 h-14 rounded-full p-0.5 shadow-[0_0_14px_rgba(78,222,163,0.7)] bg-secondary flex items-center justify-center">
+<img class="w-full h-full rounded-full object-cover" data-alt="Close up portrait of a young creative with dreadlocks illuminated by electric emerald nightclub stage lasers and smoke haze." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRlGiwYrJwwmaVCkXSso0rhrwp9uE0xFWdnt1szSelz-xnqkkSJYmK_Ffhc-JKPCiCsxkraKkCAvgxfVbosXsJJUPgjiKanyyEhcIumi6Y9QCBAisiIJAqwQ2ScSV93JsGO4akG4sDali7ivaEJaWE6_n4nmExXwz-emRCoTcTqbMRUSD-gVS459mz6HNDaY9Wj655wP6aSMt-EWBNiS26lq4EPqdln1PfKE_p5cIqNrUqytE7Ruh0UQ"/>
+</div>
+<span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-secondary shadow-[0_0_8px_rgba(78,222,163,0.9)] border-2 border-surface-container-lowest"></span>
+</div>
+<div class="mt-space-xs w-full flex flex-col items-center">
+<span class="font-label-md text-label-md text-on-surface font-semibold truncate w-full">Jax River</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate w-full text-[11px]">@jaxr</span>
+</div>
+<div class="mt-2 w-full flex items-center justify-center">
+<span class="font-energy-counter text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary shadow-[0_0_8px_rgba(78,222,163,0.3)]">
+            ⚡ 890
+          </span>
+</div>
+<span class="mt-2 font-body-sm text-body-sm text-on-surface-variant text-[11px] line-clamp-1 italic text-center">
+          Basement set
+        </span>
+</div>
+<!-- User 4: Nia Sol -->
+<div class="relative shrink-0 w-[148px] rounded-xl bg-surface-container-low p-space-sm flex flex-col items-center text-center shadow-lg group hover:bg-surface-container transition-all">
+<div class="relative my-1">
+<div class="w-14 h-14 rounded-full p-0.5 shadow-[0_0_14px_rgba(245,158,11,0.7)] bg-amber-500 flex items-center justify-center">
+<img class="w-full h-full rounded-full object-cover" data-alt="Atmospheric warm aesthetic portrait of a woman bathed in warm amber and honey tungsten lamp glow inside an intimate analog music recording studio." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDeXuTXs90oFef_Q-vNOI59aboqM6x6nyf9e_Nhx5HEWJe_IgUk6aZfRGHeO_E-WluUVLrpEhvGcBddu2oeSq-jSnCRRFMfe5gVNGIrBn_YuEkTQiXXvuGRCIln34cpQ8j68twk0HVNTzHwPk8QAhTTvdavOwIA7DRCqFf6zQjg6IBEMZX1D6rLAYC3W4JOgsCpH0Pqi5hLevXBf086KiaBDqtaPgsxDZZmn17AwDAtQREuIJ1TWmo7YQ"/>
+</div>
+<span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.9)] border-2 border-surface-container-lowest"></span>
+</div>
+<div class="mt-space-xs w-full flex flex-col items-center">
+<span class="font-label-md text-label-md text-on-surface font-semibold truncate w-full">Nia Sol</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate w-full text-[11px]">@niasol</span>
+</div>
+<div class="mt-2 w-full flex items-center justify-center">
+<span class="font-energy-counter text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 shadow-[0_0_8px_rgba(245,158,11,0.3)]">
+            ⚡ 740
+          </span>
+</div>
+<span class="mt-2 font-body-sm text-body-sm text-on-surface-variant text-[11px] line-clamp-1 italic text-center">
+          Late studio session
+        </span>
+</div>
+</div>
+</section>
+<!-- Middle Section: Trending Underground -->
+<section class="flex flex-col gap-space-sm w-full">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight">Trending Underground</h2>
+<span class="text-[18px]">⚡️</span>
+</div>
+<button class="font-label-sm text-label-sm text-primary uppercase tracking-wider flex items-center hover:opacity-80 transition-opacity">
+        Explore All <span class="material-symbols-outlined text-[16px] ml-0.5">chevron_right</span>
+</button>
+</div>
+<!-- Trending Card 1: Rave Audio Clip -->
+<div class="relative w-full rounded-2xl bg-surface-container overflow-hidden shadow-[0_8px_32px_0_rgba(183,109,255,0.18)] group transition-transform active:scale-[0.99]">
+<div class="relative h-44 w-full overflow-hidden">
+<div class="bg-cover bg-center w-full h-full transform group-hover:scale-105 transition-transform duration-700" data-alt="Dense atmospheric Berlin industrial rooftop party at 4am with silhouette crowds, strobing magenta laser beams cutting through mist, and panoramic dark skyline views." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDLxesvTQaFxKZ3YSe-0kGQfuVDgkB9erLT_EqbrTvSMQ1MHu8OWka7YFGkIYZFjUJowOox1ZoWwVOdGdOs-5Yq2UcymfbSR20lxsTt-Fe4RVblFiAbboo8d_0koaTgIHRUGkSkvfPUbXylfDqDvWocCeUn_YwSCbLV2cAl-cTM9T_D4Cfbpo8lV7ChW3WadP7RgtL2WOG2l83MegVJRpCZ7wGMR-UFTNXNyJ-hRPbY_oJNbS9Mhqh9vg')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container via-surface-container/50 to-transparent"></div>
+<div class="absolute top-3 left-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-lowest/80 backdrop-blur-md">
+<span class="w-2 h-2 rounded-full bg-secondary animate-ping"></span>
+<span class="font-label-sm text-label-sm text-secondary uppercase text-[10px]">Pop-Up Drop</span>
+</div>
+<button class="absolute bottom-3 right-3 w-11 h-11 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-[0_0_20px_rgba(221,183,255,0.8)] hover:scale-110 active:scale-95 transition-all" id="previewAudioBtn">
+<span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</button>
+</div>
+<div class="p-space-md flex flex-col gap-space-xs">
+<h3 class="font-headline-sm text-headline-sm text-on-surface leading-snug">Secret Berlin rooftop pop-up revealed</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Coordinates dropped via encrypted frequency. Location valid until 06:00 AM.</p>
+<div class="flex items-center justify-between mt-space-xs pt-2">
+<div class="flex items-center gap-space-sm">
+<button class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-highest text-primary hover:bg-primary/20 transition-all text-label-sm font-label-sm">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+<span>3.4k hype</span>
+</button>
+<span class="font-body-sm text-body-sm text-outline flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">chat</span>
+              142
+            </span>
+</div>
+<button class="text-outline hover:text-on-surface transition-colors p-1">
+<span class="material-symbols-outlined text-[20px]">share</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Trending Card 2: Interactive Community Poll -->
+<div class="w-full rounded-2xl bg-surface-container p-space-md flex flex-col gap-space-sm shadow-md">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-space-xs">
+<div class="w-8 h-8 rounded-full bg-primary-container/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[18px]">poll</span>
+</div>
+<div>
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-[10px]">Nocturnal Fuel Debate</span>
+<h3 class="font-headline-sm text-[16px] text-on-surface leading-tight">Best late night ramen spot after 3am?</h3>
+</div>
+</div>
+<span class="font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant">892 votes</span>
+</div>
+<!-- Poll Options (Interactive) -->
+<div class="flex flex-col gap-2 mt-1" id="ramenPollContainer">
+<!-- Option 1 -->
+<button class="poll-choice relative w-full h-11 rounded-xl bg-surface-container-high overflow-hidden text-left px-space-md flex items-center justify-between group hover:bg-surface-bright transition-all" onclick="voteOption(this, '62%')">
+<div class="poll-bar absolute inset-y-0 left-0 bg-primary/20 transition-all duration-500 rounded-xl" style="width: 62%;"></div>
+<span class="relative z-10 font-body-md text-body-md text-on-surface font-medium">Ichiran Shinjuku (24h Solo Booths)</span>
+<span class="relative z-10 font-label-md text-label-md text-primary font-bold">62%</span>
+</button>
+<!-- Option 2 -->
+<button class="poll-choice relative w-full h-11 rounded-xl bg-surface-container-high overflow-hidden text-left px-space-md flex items-center justify-between group hover:bg-surface-bright transition-all" onclick="voteOption(this, '26%')">
+<div class="poll-bar absolute inset-y-0 left-0 bg-secondary/20 transition-all duration-500 rounded-xl" style="width: 26%;"></div>
+<span class="relative z-10 font-body-md text-body-md text-on-surface font-medium">Kurobuta Garage (Hidden Alley)</span>
+<span class="relative z-10 font-label-md text-label-md text-secondary font-bold">26%</span>
+</button>
+<!-- Option 3 -->
+<button class="poll-choice relative w-full h-11 rounded-xl bg-surface-container-high overflow-hidden text-left px-space-md flex items-center justify-between group hover:bg-surface-bright transition-all" onclick="voteOption(this, '12%')">
+<div class="poll-bar absolute inset-y-0 left-0 bg-tertiary/20 transition-all duration-500 rounded-xl" style="width: 12%;"></div>
+<span class="relative z-10 font-body-md text-body-md text-on-surface font-medium">Totto 52nd (Counter Stool)</span>
+<span class="relative z-10 font-label-md text-label-md text-tertiary font-bold">12%</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Bottom Section: People You May Vibe With -->
+<section class="flex flex-col gap-space-sm w-full">
+<div class="flex items-center justify-between">
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight">People You May Vibe With</h2>
+<button class="font-label-sm text-label-sm text-outline uppercase tracking-wider hover:text-on-surface transition-colors">See all</button>
+</div>
+<div class="flex flex-col gap-space-xs w-full">
+<!-- Suggested Friend 1: Ava Sterling -->
+<div class="w-full p-space-sm rounded-xl bg-surface-container flex items-center justify-between shadow-sm">
+<div class="flex items-center gap-space-sm min-w-0 pr-2">
+<div class="relative shrink-0">
+<div class="w-12 h-12 rounded-full p-0.5 bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.6)] flex items-center justify-center">
+<img class="w-full h-full rounded-full object-cover" data-alt="Headshot of a female electronic music producer in a dim studio setup surrounded by synth rack LEDs and cyan screen reflections." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAPoLeVzo_1AadonlE1OCPhvt25c_3IIXwOF0SyFjq8NJ2j2R_Qt0hDLwS_oqC120n4O7ATqdGui7iAUONMCGAnPe6wvzusxvlhys-fzo8BxbY7_-6F2L_RK-eCkjOr7OyPh7b6MrCFQxZ_pBRBABQw19OFv_OhwFPbMtRlYql31ZVPEOBwmCUaotYsvyY6F_7xlbZP1YTaVdMZxJRDHJayoCdQAItLupaTHTPNoLnGwgiVcB1IL-01tA"/>
+</div>
+<span class="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.9)] border-2 border-surface-container"></span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1.5">
+<span class="font-label-md text-label-md text-on-surface font-semibold truncate">Ava Sterling</span>
+<span class="font-body-sm text-body-sm text-outline text-[11px] truncate">@avas</span>
+</div>
+<span class="font-body-sm text-body-sm text-tertiary-fixed-dim text-[12px] truncate">Producing beats</span>
+<span class="font-body-sm text-body-sm text-outline text-[11px] truncate mt-0.5">Mutuals with Maya &amp; Kaito</span>
+</div>
+</div>
+<button class="shrink-0 px-3.5 py-1.5 rounded-full bg-primary-container text-on-primary font-label-md text-label-md shadow-[0_0_16px_rgba(183,109,255,0.4)] active:scale-95 transition-all" onclick="toggleFriend(this)">
+          + Add Friend
+        </button>
+</div>
+<!-- Suggested Friend 2: Marcus Thorne -->
+<div class="w-full p-space-sm rounded-xl bg-surface-container flex items-center justify-between shadow-sm">
+<div class="flex items-center gap-space-sm min-w-0 pr-2">
+<div class="relative shrink-0">
+<div class="w-12 h-12 rounded-full p-0.5 bg-primary shadow-[0_0_12px_rgba(221,183,255,0.6)] flex items-center justify-center">
+<img class="w-full h-full rounded-full object-cover" data-alt="Male partygoer portrait illuminated by deep neon purple and red lights inside an eccentric underground cabaret nightclub." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA-l-DkWnV0fOZ8a0-CczIXojvUVA7wPkMvaBfeqrfQai8UzMm4PBKm31jBXZ1dcdSTxJpNqaxrjA-g08wqOulUpTsdr-xAcqRZWKYf0MFvMBQk6bk6cl1Vc0j22kqx9Hv8412vNGXENodYvPj8rkJNZ31meWXLD9oDb9j6o5ulz_lRnhlQ05DerLej9eBtB-5HmcCrjCFpF_GKa1gGDz78QiCZ8zrA9O5-DT1UuHoBYRUUN8DZmjV28w"/>
+</div>
+<span class="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-primary shadow-[0_0_6px_rgba(221,183,255,0.9)] border-2 border-surface-container"></span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1.5">
+<span class="font-label-md text-label-md text-on-surface font-semibold truncate">Marcus Thorne</span>
+<span class="font-body-sm text-body-sm text-outline text-[11px] truncate">@mthorne</span>
+</div>
+<span class="font-body-sm text-body-sm text-primary text-[12px] truncate">At The Box</span>
+<span class="font-body-sm text-body-sm text-outline text-[11px] truncate mt-0.5">Active nearby in Lower East Side</span>
+</div>
+</div>
+<button class="shrink-0 px-3.5 py-1.5 rounded-full bg-primary-container text-on-primary font-label-md text-label-md shadow-[0_0_16px_rgba(183,109,255,0.4)] active:scale-95 transition-all" onclick="toggleFriend(this)">
+          + Add Friend
+        </button>
+</div>
+<!-- Suggested Friend 3: Sora Park -->
+<div class="w-full p-space-sm rounded-xl bg-surface-container flex items-center justify-between shadow-sm">
+<div class="flex items-center gap-space-sm min-w-0 pr-2">
+<div class="relative shrink-0">
+<div class="w-12 h-12 rounded-full p-0.5 bg-secondary shadow-[0_0_12px_rgba(78,222,163,0.6)] flex items-center justify-center">
+<img class="w-full h-full rounded-full object-cover" data-alt="Candid night shot of a trendy person smiling under neon street signs in an open-air Brooklyn industrial block party." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAzrrosLUB8zwV4a81IM--PyqPyKbBZwjqNXQOq2wCh4ap6RWzAkVcqXknxt0IO2zy6lGwPxi_d_aEOyM9B-5VM_ZeJDCipSsYQAje7GvpARW7bsrmIEGlL54DfxIqLXTs1oE-B9Z7ICBcCYg1ErgzTY3DxY_LBce5LjaxW9b7_QKf2qvchWeJStJ4Neo0qVOC5zN8NDkL-30LHTgFRdntPIhqRc5JVQxiNraln2nD4YgfA4NKa5SYx3g"/>
+</div>
+<span class="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-secondary shadow-[0_0_6px_rgba(78,222,163,0.9)] border-2 border-surface-container"></span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1.5">
+<span class="font-label-md text-label-md text-on-surface font-semibold truncate">Sora Park</span>
+<span class="font-body-sm text-body-sm text-outline text-[11px] truncate">@sorap</span>
+</div>
+<span class="font-body-sm text-body-sm text-secondary text-[12px] truncate">Out in Brooklyn</span>
+<span class="font-body-sm text-body-sm text-outline text-[11px] truncate mt-0.5">Connected to 5 members in your Circle</span>
+</div>
+</div>
+<button class="shrink-0 px-3.5 py-1.5 rounded-full bg-primary-container text-on-primary font-label-md text-label-md shadow-[0_0_16px_rgba(183,109,255,0.4)] active:scale-95 transition-all" onclick="toggleFriend(this)">
+          + Add Friend
+        </button>
+</div>
+</div>
+</section>
+</div>
+<script>
+  function toggleFriend(btn) {
+    if (btn.dataset.added === 'true') {
+      btn.dataset.added = 'false';
+      btn.textContent = '+ Add Friend';
+      btn.className = 'shrink-0 px-3.5 py-1.5 rounded-full bg-primary-container text-on-primary font-label-md text-label-md shadow-[0_0_16px_rgba(183,109,255,0.4)] active:scale-95 transition-all';
+    } else {
+      btn.dataset.added = 'true';
+      btn.textContent = 'Requested ✓';
+      btn.className = 'shrink-0 px-3.5 py-1.5 rounded-full bg-surface-container-highest text-secondary font-label-md text-label-md shadow-none active:scale-95 transition-all';
+    }
+  }
+
+  function voteOption(btn, pct) {
+    const parent = btn.closest('#ramenPollContainer');
+    const allBars = parent.querySelectorAll('.poll-bar');
+    allBars.forEach(b => b.classList.remove('opacity-100'));
+    btn.querySelector('.poll-bar').classList.add('opacity-100');
+    
+    // Quick haptic-like bump
+    btn.classList.add('scale-[0.98]');
+    setTimeout(() => btn.classList.remove('scale-[0.98]'), 150);
+  }
+
+  const previewBtn = document.getElementById('previewAudioBtn');
+  if (previewBtn) {
+    let playing = false;
+    previewBtn.addEventListener('click', () => {
+      playing = !playing;
+      const icon = previewBtn.querySelector('.material-symbols-outlined');
+      if (playing) {
+        icon.textContent = 'pause';
+        previewBtn.classList.add('shadow-[0_0_24px_rgba(78,222,163,0.9)]', 'bg-secondary', 'text-on-secondary');
+        previewBtn.classList.remove('bg-primary', 'text-on-primary', 'shadow-[0_0_20px_rgba(221,183,255,0.8)]');
+      } else {
+        icon.textContent = 'play_arrow';
+        previewBtn.classList.add('bg-primary', 'text-on-primary', 'shadow-[0_0_20px_rgba(221,183,255,0.8)]');
+        previewBtn.classList.remove('shadow-[0_0_24px_rgba(78,222,163,0.9)]', 'bg-secondary', 'text-on-secondary');
+      }
+    });
+  }
+</script></main><nav class="fixed bottom-0 w-full z-50 pb-safe bg-surface-container-lowest/85 backdrop-blur-xl shadow-[0_-8px_32px_0_rgba(0,0,0,0.5)]" data-active-classes="text-primary relative after:content-[''] after:absolute after:bottom-1 after:w-1 after:h-1 after:rounded-full after:bg-primary after:shadow-[0_0_8px_rgba(221,183,255,0.9)]"><div class="flex items-center justify-between h-16 px-space-xs"><a class="flex-1 h-12 flex flex-col items-center justify-center gap-0.5 text-on-surface-variant transition-all" data-path="home-feed" href="#"><span class="material-symbols-outlined text-[22px]">dynamic_feed</span><span class="font-label-sm uppercase tracking-tighter">Home</span></a><a aria-current="page" class="flex-1 h-12 flex flex-col items-center justify-center gap-0.5 transition-all text-primary relative after:content-[''] after:absolute after:bottom-1 after:w-1 after:h-1 after:rounded-full after:bg-primary after:shadow-[0_0_8px_rgba(221,183,255,0.9)]" data-path="explore-trending" href="#"><span class="material-symbols-outlined text-[22px]">local_fire_department</span><span class="font-label-sm uppercase tracking-tighter">Explore</span></a><a class="flex-1 h-12 flex flex-col items-center justify-center gap-0.5 text-on-surface-variant transition-all" data-path="inner-circle" href="#"><span class="material-symbols-outlined text-[22px]">diversity_3</span><span class="font-label-sm uppercase tracking-tighter">Circle</span></a><a class="flex-1 h-12 flex flex-col items-center justify-center gap-0.5 text-on-surface-variant transition-all relative" data-path="chat-messages" href="#"><div class="relative"><span class="material-symbols-outlined text-[22px]">chat_bubble</span><span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-secondary shadow-[0_0_6px_rgba(78,222,163,0.8)]"></span></div><span class="font-label-sm uppercase tracking-tighter">Chats</span></a><a class="flex-1 h-12 flex flex-col items-center justify-center gap-0.5 text-on-surface-variant transition-all" data-path="activity-feed" href="#"><span class="material-symbols-outlined text-[22px]">favorite</span><span class="font-label-sm uppercase tracking-tighter">Activity</span></a><a class="flex-1 h-12 flex flex-col items-center justify-center gap-0.5 text-on-surface-variant transition-all" data-path="my-profile" href="#"><span class="material-symbols-outlined text-[22px]">account_circle</span><span class="font-label-sm uppercase tracking-tighter">Profile</span></a></div></nav></body></html>

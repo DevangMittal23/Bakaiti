@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useAuthStore } from "@/stores/auth-store";
 import type { Conversation, Message } from "@/types";
 
 interface ChatState {
@@ -105,7 +106,7 @@ export const useChatStore = create<ChatState>((set) => ({
               unread_count:
                 state.activeConversationId === conversationId
                   ? 0
-                  : (c.unread_count || 0) + 1,
+                  : (c.unread_count || 0) + (message.sender_id !== useAuthStore.getState().user?.id && c.last_message?.id !== message.id ? 1 : 0),
             }
           : c
       );

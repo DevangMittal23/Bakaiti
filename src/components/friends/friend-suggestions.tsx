@@ -9,7 +9,7 @@ import type { User } from "@/types";
 
 interface FriendSuggestionsProps {
   suggestions: User[];
-  onSendRequest: (userId: string) => Promise<any>;
+  onSendRequest: (userId: string) => Promise<{ error?: string; success?: boolean } | void>;
 }
 
 export function FriendSuggestions({
@@ -91,7 +91,7 @@ export function FriendSuggestions({
                     </p>
                   ) : (
                     <p className="text-[11px] text-text-muted truncate mt-0.5">
-                      Popular on HUDdang
+                      Popular on Bakaiti
                     </p>
                   )}
                 </div>

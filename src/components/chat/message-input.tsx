@@ -1,228 +1,274 @@
 "use client";
-
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Paperclip, Send, Loader2 } from "lucide-react";
 import { EmojiPicker } from "./emoji-picker";
 import { GifPicker } from "./gif-picker";
 import { VoiceRecorder } from "./voice-recorder";
 import { MediaPreview } from "./media-preview";
 import { useUpload } from "@/hooks/use-upload";
-import { TYPING_DEBOUNCE_MS } from "@/lib/constants";
-import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
+import { useChatStore } from "@/stores/chat-store";
+import { TYPING_DEBOUNCE_MS } from "@/lib/constants";
+import { validateUpload } from "@/lib/media";
+import type { MediaDimensions } from "@/lib/chat-media";
+import type { Message } from "@/types";
 
-interface MessageInputProps {
-  onSendMessage: (data: {
-    content?: string;
-    type?: string;
-    media_url?: string | null;
-    media_metadata?: Record<string, unknown> | null;
-    gif_url?: string | null;
-  }) => Promise<any>;
-  onTyping: (isTyping: boolean) => void;
+type Payload = {
+  content?: string;
+  type?: string;
+  media_url?: string | null;
+  media_metadata?: Record<string, unknown> | null;
+  gif_url?: string | null;
+};
+type Props = {
+  onSendMessage: (
+    data: Payload,
+  ) => Promise<{ error?: string; message?: Message }>;
+  onTyping: (typing: boolean) => void;
   conversationId: string;
-}
+};
 
 export function MessageInput({
   onSendMessage,
   onTyping,
   conversationId,
-}: MessageInputProps) {
+}: Props) {
   const { user } = useAuth();
-  const [text, setText] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [text, setText] = useState(
+    () => useChatStore.getState().drafts[conversationId] || "",
+  );
+  const [attachment, setAttachment] = useState<{ file: File; id: string } | null>(null);
+  const file = attachment?.file || null;
   const [sending, setSending] = useState(false);
-  
+  const [error, setError] = useState<string | null>(null);
   const { uploadFile, isUploading, progress } = useUpload();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Broadcaster of typing indications on text change
-  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setText(val);
-    onTyping(true);
-
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    
-    typingTimeoutRef.current = setTimeout(() => {
-      onTyping(false);
-    }, TYPING_DEBOUNCE_MS);
+  const selectedFile = useRef<File | null>(null);
+  const dimensions = useRef<(MediaDimensions & { file: File }) | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const textarea = useRef<HTMLTextAreaElement>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const busy = useRef(false);
+  const clearAttachment = () => {
+    if (busy.current) return;
+    selectedFile.current = null;
+    dimensions.current = null;
+    setAttachment(null);
+    if (input.current) input.current.value = "";
+    textarea.current?.focus();
   };
-
-  const handleSend = async () => {
-    if (!text.trim() && !selectedFile && !sending) return;
-    if (!user) return;
-
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+  const changeText = (value: string) => {
+    setText(value);
+    useChatStore.getState().setDraft(conversationId, value);
+    onTyping(Boolean(value.trim()));
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => onTyping(false), TYPING_DEBOUNCE_MS);
+  };
+  const submit = async (
+    extra?: Payload,
+    voice?: { blob: Blob; duration: number },
+  ) => {
+    if (busy.current || !user || (!extra && !voice && !text.trim() && !file))
+      return;
+    busy.current = true;
     setSending(true);
+    setError(null);
+    onTyping(false);
     try {
-      let mediaUrl: string | null = null;
-      let mediaType = "text";
-      let metadata: any = null;
-
-      if (selectedFile) {
-        const ext = selectedFile.name.split(".").pop();
-        const fileName = `${user.id}/${Date.now()}_msg.${ext}`;
-        const isImage = selectedFile.type.startsWith("image/");
-        const isVideo = selectedFile.type.startsWith("video/");
-        
-        mediaType = isImage ? "image" : isVideo ? "video" : "file";
-        metadata = {
-          filename: selectedFile.name,
-          size: selectedFile.size,
+      let payload: Payload = extra || {
+        content: voice ? undefined : text.trim() || undefined,
+        type: "text",
+      };
+      if ((!extra && file) || voice) {
+        const attachment = voice
+          ? new File([voice.blob], "voice.webm", {
+              type: voice.blob.type || "audio/webm",
+            })
+          : file!;
+        const ext = attachment.name.split(".").pop() || "bin";
+        const url = await uploadFile(
+          "message-media",
+          `${user.id}/${crypto.randomUUID()}.${ext}`,
+          attachment,
+        );
+        if (!url)
+          throw new Error("Your attachment could not be uploaded. Try again.");
+        const mediaDimensions = !voice && dimensions.current?.file === attachment
+          ? dimensions.current
+          : null;
+        payload = {
+          ...payload,
+          type: voice
+            ? "audio"
+            : attachment.type.startsWith("image/")
+              ? "image"
+              : attachment.type.startsWith("video/")
+                ? "video"
+                : attachment.type.startsWith("audio/")
+                  ? "audio"
+                : "file",
+          media_url: url,
+          media_metadata: {
+            filename: attachment.name,
+            size: attachment.size,
+            ...(mediaDimensions ? { width: mediaDimensions.width, height: mediaDimensions.height } : {}),
+            ...(voice ? { duration: voice.duration } : {}),
+          },
         };
-
-        // Upload attachment using Private storage bucket "message-media"
-        const uploadedUrl = await uploadFile("message-media", fileName, selectedFile);
-        if (uploadedUrl) {
-          mediaUrl = uploadedUrl;
-        } else {
-          throw new Error("Failed to upload attachment");
-        }
       }
-
-      const res = await onSendMessage({
-        content: text.trim() || undefined,
-        type: mediaType,
-        media_url: mediaUrl,
-        media_metadata: metadata,
-      });
-
-      if (res && res.error) {
-        throw new Error(res.error);
+      const result = await onSendMessage(payload);
+      if (result.error) throw new Error(result.error);
+      if (!extra && !voice) {
+        changeText("");
+        selectedFile.current = null;
+        dimensions.current = null;
+        setAttachment(null);
+        if (input.current) input.current.value = "";
       }
-
-      setText("");
-      setSelectedFile(null);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to send message");
+      textarea.current?.focus();
+    } catch (failure) {
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : "Message not sent. Your draft is still here; try again.",
+      );
     } finally {
+      busy.current = false;
       setSending(false);
     }
   };
-
-  const handleSendGif = async (gifUrl: string) => {
-    setSending(true);
-    try {
-      const res = await onSendMessage({
-        type: "gif",
-        gif_url: gifUrl,
-      });
-      if (res && res.error) {
-        throw new Error(res.error);
-      }
-      toast.success("GIF sent");
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to send GIF");
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const handleSendVoiceNote = async (blob: Blob, duration: number) => {
-    if (!user) return;
-    setSending(true);
-    try {
-      const fileName = `${user.id}/${Date.now()}_voice.webm`;
-      
-      // Upload voice note using Private message-media bucket
-      const uploadedUrl = await uploadFile("message-media", fileName, new File([blob], fileName, { type: blob.type || "audio/webm" }));
-      if (uploadedUrl) {
-        const res = await onSendMessage({
-          type: "audio",
-          media_url: uploadedUrl,
-          media_metadata: { duration },
-        });
-        if (res && res.error) {
-          throw new Error(res.error);
-        }
-        toast.success("Voice note sent");
-      }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to send voice note");
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      handleSend();
-    }
-  };
-
   return (
-    <div className="relative border-t border-border bg-background-secondary/80 backdrop-blur-md px-4 py-3 shrink-0">
-      {/* File Previews */}
-      {selectedFile && (
-        <MediaPreview file={selectedFile} onClear={() => setSelectedFile(null)} />
+    <div className="shrink-0 border-t border-border bg-surface p-3 pb-safe sm:p-4">
+      {error && (
+        <p role="alert" className="mb-3 px-2 text-xs leading-5 text-error">
+          {error}
+        </p>
       )}
-
-      {/* Uploading progress bar */}
-      {isUploading && (
-        <div className="absolute bottom-full left-0 right-0 h-1 bg-border overflow-hidden">
-          <div
-            className="bg-accent h-full transition-all duration-150"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      )}
-
-      <div className="flex items-center gap-2">
-        {/* Attachment Pin */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          onChange={handleFileSelect}
+      <form
+        noValidate
+        aria-busy={sending}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void submit();
+        }}
+        className="rounded-2xl border border-border bg-background p-2 transition-colors focus-within:border-accent/60"
+      >
+        {attachment && (
+          <MediaPreview key={attachment.id} file={attachment.file} disabled={sending} onClear={clearAttachment} onDimensions={(value) => {
+            if (selectedFile.current === attachment.file) dimensions.current = { ...value, file: attachment.file };
+          }} />
+        )}
+        <label htmlFor={`message-${conversationId}`} className="sr-only">
+          Message
+        </label>
+        <textarea
+          ref={textarea}
+          id={`message-${conversationId}`}
+          value={text}
+          maxLength={5000}
+          rows={2}
+          disabled={sending}
+          placeholder="Say something worth sending…"
+          onChange={(event) => {
+            changeText(event.target.value);
+            event.target.style.height = "auto";
+            event.target.style.height = `${Math.min(event.target.scrollHeight, 180)}px`;
+          }}
+          onKeyDown={(event) => {
+            if (
+              event.key === "Enter" &&
+              !event.shiftKey &&
+              !event.nativeEvent.isComposing
+            ) {
+              event.preventDefault();
+              void submit();
+            }
+          }}
+          className="max-h-44 min-h-14 w-full resize-none bg-transparent px-3 py-2 text-sm leading-6 outline-none placeholder:text-text-secondary disabled:opacity-60"
         />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="rounded-lg p-2 text-text-muted hover:bg-surface hover:text-accent transition-colors cursor-pointer focus:outline-none"
-          title="Attach file"
-          disabled={sending || isUploading}
-        >
-          <Paperclip className="h-5 w-5" />
-        </button>
-
-        {/* Emojis, GIFs & Audio shortcuts */}
-        <EmojiPicker onSelect={(emoji) => setText((prev) => prev + emoji)} />
-        <GifPicker onSelect={handleSendGif} />
-        <VoiceRecorder onSend={handleSendVoiceNote} />
-
-        {/* Text Input field */}
-        <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1">
           <input
-            type="text"
-            placeholder="Type a message..."
-            value={text}
-            onChange={handleTextChange}
-            onKeyDown={handleKeyPress}
-            disabled={sending || isUploading}
-            className="w-full rounded-xl border border-border/50 bg-surface/50 py-2.5 px-4 text-sm text-text-primary placeholder:text-text-muted outline-none transition-all duration-200 focus:border-accent/60 focus:bg-surface focus:shadow-glow"
+            ref={input}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,audio/webm,audio/mp4,application/pdf"
+            aria-label="Message attachment"
+            disabled={sending}
+            className="hidden"
+            onChange={(event) => {
+              const selected = event.target.files?.[0];
+              event.target.value = "";
+              if (!selected || busy.current) return;
+              try {
+                validateUpload("message-media", `${user?.id || "selection"}/preview`, selected, user?.id || "selection");
+                selectedFile.current = selected;
+                dimensions.current = null;
+                setAttachment({ file: selected, id: crypto.randomUUID() });
+                setError(null);
+              } catch (failure) {
+                setError(failure instanceof Error ? failure.message : "This file cannot be attached.");
+              }
+            }}
           />
+          <button
+            type="button"
+            aria-label="Attach a file"
+            disabled={sending}
+            onClick={() => input.current?.click()}
+            className="flex h-11 w-10 items-center justify-center rounded-xl text-text-secondary hover:bg-surface-container hover:text-accent disabled:opacity-40"
+          >
+            <Paperclip className="h-4 w-4" />
+          </button>
+          <fieldset
+            disabled={sending}
+            className="flex items-center gap-0.5 disabled:opacity-40"
+          >
+            <legend className="sr-only">Message extras</legend>
+            <EmojiPicker
+              onSelect={(emoji) => {
+                changeText(text + emoji);
+                textarea.current?.focus();
+              }}
+            />
+            <GifPicker
+              onSelect={(url) => void submit({ type: "gif", gif_url: url })}
+            />
+            <VoiceRecorder
+              onSend={(blob, duration) =>
+                void submit(undefined, { blob, duration })
+              }
+            />
+          </fieldset>
+          <span className="min-w-0 flex-1" />
+          <button
+            type="submit"
+            aria-label="Send message"
+            disabled={sending || (!text.trim() && !file)}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent text-on-primary transition-transform hover:brightness-110 active:scale-95 disabled:opacity-35"
+          >
+            {sending || isUploading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </button>
         </div>
-
-        {/* Send Button */}
-        <button
-          onClick={handleSend}
-          disabled={sending || isUploading || (!text.trim() && !selectedFile)}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-white hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer active:scale-95 transition-all shadow-sm"
-        >
-          {sending || isUploading ? (
-            <Loader2 className="h-4.5 w-4.5 animate-spin" />
-          ) : (
-            <Send className="h-4.5 w-4.5" />
-          )}
-        </button>
-      </div>
+        {sending && (
+          <div className="px-3 pb-2 text-xs text-text-secondary" role="status">
+            {isUploading ? <>
+              <span>Uploading attachment · {progress}%</span>
+              <progress aria-label="Attachment upload progress" value={progress} max={100} className="mt-2 block h-1 w-full accent-accent" />
+            </> : <span>Sending message…</span>}
+          </div>
+        )}
+      </form>
+      <p className="mt-2 hidden px-2 text-[10px] text-text-secondary sm:block">
+        Enter to send · Shift + Enter for a new line
+      </p>
     </div>
   );
 }

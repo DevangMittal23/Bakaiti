@@ -1,55 +1,68 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useChatStore } from "@/stores/chat-store";
+import { useAuthStore } from "@/stores/auth-store";
 import { getConversations } from "@/actions/conversations";
 
 export function useConversations() {
   const supabase = createClient();
+  const userId = useAuthStore((state) => state.user?.id);
   const { conversations, totalUnread, setConversations } = useChatStore();
-
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
+    if (!userId) return;
+    let current = true;
+    let revision = 0;
     const load = async () => {
-      const result = await getConversations();
-      setConversations(result);
+      const request = ++revision;
+      try {
+        const result = await getConversations();
+        if (current && request === revision) {
+          setConversations(result);
+          setError(null);
+        }
+      } catch {
+        if (current && request === revision)
+          setError("Could not load conversations. Refresh to try again.");
+      } finally {
+        if (current && request === revision) setLoadedFor(userId);
+      }
     };
-
-    load();
-
-    // Subscribe to conversation updates (new messages changing last_message_at)
+    void load();
     const channel = supabase
-      .channel(`conversations-updates-${Math.random().toString(36).substring(2, 9)}`)
+      .channel(`conversations:${userId}:${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "conversations",
-        },
+        { event: "UPDATE", schema: "public", table: "conversations" },
         () => {
-          // Reload conversations when any conversation is updated
-          load();
-        }
+          void load();
+        },
       )
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "participants",
+          filter: `user_id=eq.${userId}`,
         },
         () => {
-          // Reload when added to a new conversation
-          load();
-        }
+          void load();
+        },
       )
       .subscribe();
-
     return () => {
-      supabase.removeChannel(channel);
+      current = false;
+      void supabase.removeChannel(channel);
     };
-  }, [supabase, setConversations]);
-
-  return { conversations, totalUnread };
+  }, [supabase, setConversations, userId]);
+  return {
+    conversations,
+    totalUnread,
+    isLoading: !userId || loadedFor !== userId,
+    error,
+  };
 }

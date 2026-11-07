@@ -1,80 +1,101 @@
 "use client";
-
-import { useTransition } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState } from "react";
+import Link from "next/link";
+import { Bell, CheckCheck, Loader2 } from "lucide-react";
 import { useNotifications } from "@/hooks/use-notifications";
-import { markAllRead as markAllReadAction } from "@/actions/notifications";
 import { useNotificationStore } from "@/stores/notification-store";
+import { markAllRead } from "@/actions/notifications";
 import { NotificationItem } from "./notification-item";
-import { LoadingSpinner } from "@/components/shared/loading-spinner";
-import { CheckCheck, Bell } from "lucide-react";
-import type { Notification } from "@/types";
-
 export function NotificationList() {
   const { notifications, unreadCount, isLoading } = useNotifications();
-  const { markAllRead } = useNotificationStore();
-  const [isPending, startTransition] = useTransition();
-
-  const handleMarkAllRead = () => {
-    startTransition(async () => {
-      await markAllReadAction();
-      markAllRead();
-    });
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [unread, setUnread] = useState(false);
+  const markAll = async () => {
+    if (pending) return;
+    setPending(true);
+    setError(null);
+    try {
+      const result = await markAllRead();
+      if (result.error) throw new Error(result.error);
+      useNotificationStore.getState().markAllRead();
+    } catch {
+      setError("Your updates could not be marked as read. Try again.");
+    } finally {
+      setPending(false);
+    }
   };
-
-  const hasUnread = unreadCount > 0;
-
+  const visible = unread
+    ? notifications.filter((n) => !n.is_read)
+    : notifications;
   return (
-    <div>
-      {/* Mark all read button */}
-      {hasUnread && (
-        <div className="mb-4 flex justify-end">
-          <button
-            onClick={handleMarkAllRead}
-            disabled={isPending}
-            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-accent-subtle cursor-pointer"
-          >
-            <CheckCheck className="h-3.5 w-3.5" />
-            Mark all as read
-          </button>
-        </div>
-      )}
-
-      {/* Notifications list */}
-      <div className="space-y-2">
-        <AnimatePresence mode="popLayout">
-          {notifications.map((notification, index) => (
-            <motion.div
-              key={notification.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ delay: index * 0.02, duration: 0.2 }}
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-4">
+        <div className="flex gap-1">
+          {[false, true].map((value) => (
+            <button
+              key={String(value)}
+              type="button"
+              aria-pressed={unread === value}
+              onClick={() => setUnread(value)}
+              className={`min-h-11 rounded-xl px-4 text-xs font-semibold ${unread === value ? "bg-accent/15 text-accent" : "text-text-secondary hover:bg-surface"}`}
             >
-              <NotificationItem notification={notification} />
-            </motion.div>
+              {value
+                ? `Unread${unreadCount ? ` (${unreadCount})` : ""}`
+                : "All updates"}
+            </button>
           ))}
-        </AnimatePresence>
-      </div>
-
-      {/* States */}
-      {isLoading && notifications.length === 0 && (
-        <div className="flex justify-center py-12">
-          <LoadingSpinner />
         </div>
+        <button
+          type="button"
+          disabled={pending || !unreadCount}
+          onClick={() => void markAll()}
+          className="inline-flex min-h-11 items-center gap-2 text-xs font-semibold text-accent disabled:opacity-35"
+        >
+          {pending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <CheckCheck className="h-4 w-4" />
+          )}
+          Mark all read
+        </button>
+      </div>
+      {error && (
+        <p role="alert" className="text-xs text-error">
+          {error}
+        </p>
       )}
-
-      {!isLoading && notifications.length === 0 && (
-        <div className="py-12 text-center glass-card">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-accent-muted/20">
-            <Bell className="h-8 w-8 text-accent" />
-          </div>
-          <p className="text-lg font-medium text-text-secondary">
-            No notifications yet
+      {isLoading && !notifications.length ? (
+        <div role="status" className="flex justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-accent" />
+          <span className="sr-only">Loading activity</span>
+        </div>
+      ) : visible.length ? (
+        <div className="space-y-3">
+          {visible.map((notification) => (
+            <NotificationItem
+              key={notification.id}
+              notification={notification}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-border px-6 py-16 text-center">
+          <Bell className="mx-auto mb-4 h-8 w-8 text-accent" />
+          <h2 className="font-display text-2xl font-semibold">
+            {unread ? "All caught up." : "Your circle will be in touch."}
+          </h2>
+          <p className="mt-3 text-sm leading-6 text-text-secondary">
+            {unread
+              ? "No unread updates. A little peace looks good on you."
+              : "Requests, reactions and conversations will show up here."}
           </p>
-          <p className="mt-1 text-sm text-text-muted">
-            When someone interacts with you, it'll show up here
-          </p>
+          <Link
+            href="/feed"
+            className="mt-4 inline-flex min-h-11 items-center text-xs font-semibold text-accent"
+          >
+            See what’s happening
+          </Link>
         </div>
       )}
     </div>

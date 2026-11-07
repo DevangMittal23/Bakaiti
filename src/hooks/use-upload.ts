@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { mediaReference, validateUpload } from "@/lib/media";
 
 export function useUpload() {
   const [isUploading, setIsUploading] = useState(false);
@@ -25,19 +26,23 @@ export function useUpload() {
         // Let's implement actual progress via XMLHttpRequest for a premium feel!
         const tokenResult = await supabase.auth.getSession();
         const token = tokenResult.data.session?.access_token;
+        const userId = tokenResult.data.session?.user.id;
+        if (!token || !userId) throw new Error("Sign in to upload files");
+        const contentType = validateUpload(bucket, path, file, userId);
         const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
         if (!projectUrl) {
           throw new Error("Supabase URL is not configured");
         }
 
-        const url = `${projectUrl}/storage/v1/object/${bucket}/${path}`;
+        const url = `${projectUrl}/storage/v1/object/${bucket}/${path.split("/").map(encodeURIComponent).join("/")}`;
 
-        return new Promise<string | null>((resolve, reject) => {
+        return await new Promise<string | null>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           xhr.open("POST", url, true);
-          xhr.setRequestHeader("x-upsert", "true");
-          xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+          xhr.setRequestHeader("x-upsert", "false");
+          xhr.setRequestHeader("Content-Type", contentType);
+          xhr.setRequestHeader("apikey", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
           if (token) {
             xhr.setRequestHeader("Authorization", `Bearer ${token}`);
           }
@@ -53,8 +58,9 @@ export function useUpload() {
             setIsUploading(false);
             if (xhr.status >= 200 && xhr.status < 300) {
               // Return the public URL or file path
-              const publicUrl = `${projectUrl}/storage/v1/object/public/${bucket}/${path}`;
-              resolve(publicUrl);
+              resolve(bucket === "avatars"
+                ? `${projectUrl}/storage/v1/object/public/${bucket}/${path}`
+                : mediaReference(bucket, path));
             } else {
               const errMsg = `Upload failed with status ${xhr.status}`;
               setError(errMsg);

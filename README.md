@@ -1,153 +1,91 @@
-# HUDdang
+# Bakaiti
 
-**A social messenger where you can feel how alive your friends are — without anyone saying a word.**
+**Your people. Your frequency.** Bakaiti is a social messaging application with conversations, a community feed, friendships, stories and expressive presence. The interface uses an ink/lilac/lime design system, responsive messaging panels, accessible menus/dialogs and reduced-motion support.
 
-HUDdang combines real-time messaging, a social feed, and two original presence mechanics — **Pulse** and **Signal Score** — into a single dark, tactile, purple-accented experience.
+This repository contains a working development implementation, not a blanket claim that every integration is ready for production. See the [functionality audit](docs/FUNCTIONALITY_AUDIT.md) for evidence and [tasks.md](tasks.md) for launch blockers, improvements and ideas.
 
-<!-- TODO: Add a hero screenshot or GIF here — the Feed or Explore page with Pulse rings visible -->
+## What is implemented
 
----
+| Area | Current behavior | Remaining verification or work |
+| --- | --- | --- |
+| Authentication | Signup with chosen username/password, six-digit email verification, resend/resume signup, later username/password login; live OTP/verification/logout/login happy path confirmed on 2026-11-07 | Expired/reused codes, resend limits, session persistence and full password recovery acceptance |
+| Messaging | DM/group creation paths, text and attachment/voice/GIF components, inline selected-file previews, bounded sent media/document cards, conversation filters, per-conversation memory drafts, message edit/delete/react UI | Atomic conversation creation, cross-user delivery/receipts/reactions, block enforcement and complete group administration |
+| Feed | Chronological RLS-visible feed, server-seeded initial results, composition, visibility selection, likes, comments, bookmarks and real post-detail/share URLs | Two-user privacy/mutation tests, deterministic pagination, reposts |
+| Discovery and search | Real suggested people/top Signal users/public posts, URL-backed people/post/topic search with clear/error/no-results states | Search relevance, pagination and integration checks; no simulated polls/audio/hype |
+| Profile and presence | Actual profile data, posts/media/saved views, profile editing/avatar upload, expiring Pulse and recorded Signal history | Multi-user presence/expiry checks and profile editing edge cases |
+| Activity | Notifications, unread state and friend-request response UI resolving relationship IDs | Server-validated notification events, multi-user synchronization and complete preferences |
+| Appearance | Browser-local theme/accent/glass preferences using shared CSS tokens | Cross-browser contrast/accessibility checks |
+| Privacy and calling | Honest unavailable states for controls that are not enforced or release-ready | Persistent/enforced privacy preferences and complete LiveKit signaling/media controls |
 
-## What Makes HUDdang Different
+Reply support exists in the schema/actions but is not yet exposed as a complete composer workflow. Calls are intentionally unavailable in the redesigned chat controls until incoming signaling and real track controls work. Encryption beyond the platform transport is not claimed.
 
-Most social apps show you a follower count and a green "online" dot. HUDdang replaces both:
+## Pulse and Signal
 
-- **Pulse** — a real-time, expiring emotional/availability signal (Chill, Active, Busy, Hyped) that shows as a glowing animated ring around every user's avatar. Set your Pulse, and your Circle sees your energy live — no status text required. Pulses auto-expire after 4 hours.
+**Pulse** is an optional Chill/Active/Busy/Hyped state that expires after four hours. It is separate from actual online presence. **Signal Score** is a server-calculated 0–1000 engagement score over a rolling seven-day window; the database records history. Zero/missing values are never replaced by invented scores or online claims.
 
-- **Signal Score** — a 0–1000 rolling 7-day score that measures genuine presence: posting, reacting, replying, sending voice notes, being sought out by others. Unlike a follower count, it resets meaning every week — you can't coast on old popularity.
+The scoring/expiry functions need a configured scheduler. The API job uses a bearer `CRON_SECRET` and an idempotent UTC-day ledger; see [database setup](supabase/README.md). A feature existing in code does not mean a production schedule has been configured.
 
-Friends in your Circle are sorted by Signal Score, not alphabetically or by add date — the people who are actually around right now surface first.
+## Stack and structure
 
----
+Next.js 16.4.3 App Router, React 19, TypeScript, Tailwind CSS 4, Zustand, React Hook Form/Zod, Framer Motion, Radix, Sonner, Supabase Auth/PostgreSQL/Storage/Realtime, and LiveKit integration code. Google fonts are loaded through Next font setup.
 
-## Features
+- `src/app`: auth pages, authenticated routes, post details and API handlers.
+- `src/components`: shared navigation/primitives and feature UI.
+- `src/actions`: authenticated data operations; database RLS remains authoritative.
+- `src/hooks` / `src/stores`: session, realtime and interaction state.
+- `supabase/migrations`: one canonical schema; [installation/upgrade order](supabase/README.md).
+- `scripts`: local SQL/security/auth/functionality/compiled HTTP checks and isolated fixture preview.
+- [DESIGN.md](DESIGN.md) and [UX-CONTRACT.md](UX-CONTRACT.md): visual tokens, ownership, interaction and responsive contracts.
 
-### Messaging
-- Real-time 1:1 and group chat (Supabase Realtime)
-- Read receipts, typing indicators, message reactions
-- Voice notes, image/video sharing, GIF search
-- Reply, edit, delete messages
-- Link previews with Open Graph scraping
-- Voice and video calls (LiveKit)
+`AuthProvider` initializes the client profile and one auth listener. The browser is notified when server auth endpoints write session cookies. Logout clears account-specific chat, notification, feed and call stores. Navigation badges consume stored counts; the main shell starts its synchronization hooks once. Some screen-level realtime subscriptions still need consolidation.
 
-### Social Feed
-- Create posts with text, images, video
-- Like, comment (with nested replies), bookmark, repost
-- Visibility controls: public / friends / private
-- Stories (24-hour disappearing media)
-- Explore page: trending posts + "Blazing Right Now" (top Signal Score users)
+## Run with your Supabase project
 
-### Presence System
-- **Pulse**: 4-state live availability signal with 4-hour auto-expiry
-- **Signal Score**: server-calculated engagement score with 7-day rolling history, trend chart, and tier system (Blazing / Warm / Steady / Quiet)
+Requires Node.js 20+ and a Supabase project. Install with `npm install`, copy `.env.example` to `.env.local`, and set the Supabase URL, public Publishable/anon key and server-only Secret/service-role key **from the same project**. The existing variable names are retained. Keep server credentials outside browser bundles. Configure additional LiveKit/Tenor/scheduler values only for the integrations you are using.
 
-### Social Graph
-- Friend requests, accept/decline, remove, block
-- User search and discovery
-- Suggested people ("People you may know")
-- Real-time online status via Supabase Presence
-
-### Notifications
-- Real-time activity feed: likes, comments, friend requests, messages, group invites, missed calls
-- Inline accept/decline on friend request notifications
-- Unread badge counts on sidebar and bottom nav
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 16 (App Router) + TypeScript |
-| Styling | Tailwind CSS v4 |
-| State | Zustand |
-| Animation | Framer Motion |
-| Database | Supabase (PostgreSQL) |
-| Auth | Supabase Auth |
-| Real-time | Supabase Realtime (Postgres Changes + Presence + Broadcast) |
-| Storage | Supabase Storage |
-| Voice/Video | LiveKit |
-| Forms | react-hook-form + Zod |
-| Charts | Recharts (Signal Score trend) |
-| UI Primitives | Radix UI |
-
----
-
-## Architecture Highlights
-
-- **Signal Score is computed server-side only**, via a Postgres function (`calculate_signal_score`) run on a scheduled cron job — never trusted from the client. The function computes a weighted aggregate of posts, likes received, comments, messages sent/received, voice notes, and friend accepts over a 7-day rolling window, normalized to 0–1000.
-
-- **Pulse uses a hybrid Realtime strategy**: single-user contexts (profile, chat header, your own avatar) subscribe to live Postgres Changes on the `users` table; list contexts (feed, Explore, Circle) receive Pulse data as props from the initial batch query to avoid opening dozens of simultaneous Realtime channels.
-
-- **Row Level Security is enabled on every table** — no data access relies on client-trusted user IDs. All Supabase queries go through RLS, and the `calculate_signal_score` function uses `SECURITY DEFINER` to write history records.
-
-- **Cron fallback**: If `pg_cron` is not available on your Supabase plan, an API route at `/api/cron` handles pulse expiry (every 15 min) and signal score recalculation (daily at 3 AM UTC), secured by a `CRON_SECRET` env var.
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 20+
-- A Supabase project (free tier works)
-
-### Setup
-
-```bash
-git clone https://github.com/DevangMittal23/HUDdang.git
-cd HUDdang
-npm install
-```
-
-Create `.env.local`:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-CRON_SECRET=any_random_secret_string
-```
-
-Run the database migrations in `supabase/migrations/` against your Supabase project in numerical order via the Supabase SQL editor or CLI.
+Apply migrations once in the order in [supabase/README.md](supabase/README.md). Existing projects must apply pending forward migrations rather than replaying/resetting the initial schema. Private media deployment depends on migration 0014; maintenance idempotency depends on 0015.
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [localhost:3000](http://localhost:3000). [Free Brevo SMTP, Gmail alternative and signup OTP setup](supabase/AUTH_SETUP.md) is separate from SQL. On 2026-11-07 the local URL/public key were aligned with the actual Bakaiti project (`yiwizdahpvklgqojsqug`) and the user's saved Secret key. Live public/admin checks pass and Confirm email is enabled. The user confirmed OTP delivery, verification, logout and subsequent username/password login; read-only checks confirm the matching profile and verified Auth account. Production Site URL/callback allowlist configuration is deferred until deployment, as requested; production app origins must match exactly.
 
----
+## Isolated UI preview
 
-## Screenshots
+```bash
+npm run preview
+```
 
-<!-- TODO: Add 3-4 screenshots here: Feed, Chat, Explore with Pulse/Signal visible, Profile -->
+Open [127.0.0.1:3000/login](http://127.0.0.1:3000/login). Use **mira / preview-only**; the fake signup code is **123456**. Stop any other app on port 3000 first.
 
----
+This launches the actual development application against a localhost-only fake Supabase transport on port 54329. It overrides environment values only for the child process; `.env.local` is unchanged. All people/content and mutations are disposable in-memory fixtures, reset when stopped. No real emails/messages are sent. It does **not** exercise Supabase RLS, live Realtime/Storage, SMTP, LiveKit or two-account delivery and must not be used as production hosting.
 
-## Roadmap
+The preview uses a separate `.next-preview` build directory. Set `BAKAITI_PREVIEW_PORT=3001` in the preview process environment to run beside the real app. In-memory fixture media upload/sign/read and controlled upload failures support attachment UI checks; `node scripts/check-preview.mjs` checks this local transport before starting preview. Stop preview before running that check because both use fixture port54329.
 
-- [ ] React Native mobile app (Expo) — see `MOBILE_AUDIT.md` for preparation notes
-- [ ] Voice/video call improvements (group calls, screen sharing enhancements)
-- [ ] Group chat admin controls (mute, kick, role management)
-- [ ] Vibe Rooms — temporary shared spaces
-- [ ] End-to-end encryption for DMs
-- [ ] Push notifications (Expo Push / FCM)
+## Verification
 
-> **Note**: `FUTURE.md` (the 3D spatial refactor plan from earlier in this project) was lost during the "Revert 3D refactor" commit and needs to be recreated if that direction is revisited.
+```bash
+npm run test:auth
+npm run test:security
+npm run test:db
+npm run test:functionality
+npx tsc --noEmit --incremental false
+npm run lint
+npm run build
+npm run test:production
+```
 
----
+- SQL checks apply all twelve migrations to local PGlite PostgreSQL with minimal Auth/Storage stubs; they never connect to Supabase.
+- Auth/security checks execute the actual TypeScript code with mocked service boundaries.
+- Functionality checks cover unread markers, own/duplicate sends, request IDs, post-detail/Explore viewer state, membership failures, delayed cross-conversation responses and missing/failed GIF providers. Tenor must be configured for real GIF results; the UI otherwise shows an unavailable state.
+- Compiled HTTP checks start/stop a temporary production server on port 3100. Run after building with your real environment, after stopping preview. `SMOKE_PORT` overrides the port.
+- Build font downloads need network access. A successful build and mocked UI checks do not establish deployed integration readiness. Current lint/audit limitations are recorded in the project tasks/audit rather than hidden.
 
-## Author
+## Next steps and ideas
 
-**Devang Mittal**
-Pre-final year B.Tech CS (AI & Data Analytics), GLA University, Mathura
+The release order is security/privacy enforcement → atomic messaging and delivery semantics → recovery/integrations → accessibility/operational checks. See [tasks.md](tasks.md) for acceptance criteria. Product ideas such as replies, unread jump, pinned conversations, opt-in drafts, push and native mobile remain separate from claims about current functionality.
 
-<!-- TODO: Add your actual links below -->
-[LinkedIn](https://linkedin.com/in/YOUR_LINKEDIN) · [Portfolio](https://YOUR_PORTFOLIO_URL)
+## Author and license
 
----
-
-## License
-
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+Devang Mittal. See [LICENSE](LICENSE) for licensing terms.

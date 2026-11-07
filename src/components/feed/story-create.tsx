@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useTransition } from "react";
+import { useState, useRef, useTransition, useEffect } from "react";
 import { ImagePlus, X, Send, Loader2 } from "lucide-react";
 import { createStory } from "@/actions/stories";
 import { useUpload } from "@/hooks/use-upload";
@@ -9,13 +9,25 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-export function StoryCreate() {
+export function StoryCreate({
+  onCreated,
+  onCancel,
+}: { onCreated?: () => void; onCancel?: () => void } = {}) {
   const { user } = useAuth();
   const { closeModal } = useUIStore();
   const [caption, setCaption] = useState("");
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  
+  const [error, setError] = useState<string | null>(null);
+  const submitting = useRef(false);
+  const close = onCancel || closeModal;
+  useEffect(
+    () => () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    },
+    [previewUrl],
+  );
+
   const { uploadFile, isUploading, progress } = useUpload();
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -23,13 +35,18 @@ export function StoryCreate() {
   const handleMediaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      setError("Choose a file smaller than 50 MB.");
+      return;
+    }
 
     if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
-      toast.error("Please select an image or video file.");
+      setError("Please select an image or video file.");
       return;
     }
 
     setMediaFile(file);
+    setError(null);
     setPreviewUrl(URL.createObjectURL(file));
   };
 
@@ -37,10 +54,13 @@ export function StoryCreate() {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setMediaFile(null);
     setPreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleSubmit = () => {
-    if (!mediaFile || !user) return;
+    if (!mediaFile || !user || submitting.current) return;
+    submitting.current = true;
+    setError(null);
 
     startTransition(async () => {
       try {
@@ -62,17 +82,20 @@ export function StoryCreate() {
         });
 
         if (res.error) {
-          toast.error(res.error);
+          setError(res.error);
         } else {
-          toast.success("Story posted successfully! It will expire in 24 hours.");
+          toast.success(
+            "Story posted successfully! It will expire in 24 hours.",
+          );
           handleRemoveMedia();
           setCaption("");
-          closeModal();
-          // Reload page to reflect changes
-          window.location.reload();
+          if (onCreated) onCreated();
+          else close();
         }
-      } catch (err: any) {
-        toast.error(err.message || "Failed to post story.");
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Failed to post story.");
+      } finally {
+        submitting.current = false;
       }
     });
   };
@@ -82,17 +105,28 @@ export function StoryCreate() {
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-bold text-text-primary">Create Story</h3>
         <button
-          onClick={closeModal}
-          className="rounded-full hover:bg-surface-hover p-1 text-text-secondary cursor-pointer"
+          type="button"
+          aria-label="Close story creation"
+          onClick={close}
+          className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-surface-hover text-text-secondary cursor-pointer"
         >
           <X className="h-4.5 w-4.5" />
         </button>
       </div>
 
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,video/*"
+        aria-label="Story attachment"
+        className="hidden"
+        onChange={handleMediaSelect}
+      />
       {!previewUrl ? (
-        <div
+        <button
+          type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="flex flex-col items-center justify-center border-2 border-dashed border-border hover:border-accent hover:bg-surface/20 rounded-xl h-64 cursor-pointer transition-colors"
+          className="flex w-full flex-col items-center justify-center border-2 border-dashed border-border hover:border-accent hover:bg-surface/20 rounded-xl h-48 sm:h-64 cursor-pointer transition-colors"
         >
           <ImagePlus className="h-10 w-10 text-text-muted mb-2" />
           <span className="text-sm font-semibold text-text-secondary">
@@ -101,14 +135,7 @@ export function StoryCreate() {
           <span className="text-xs text-text-muted mt-1">
             Max file size: 50MB
           </span>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,video/*"
-            className="hidden"
-            onChange={handleMediaSelect}
-          />
-        </div>
+        </button>
       ) : (
         <div className="relative rounded-xl overflow-hidden bg-black h-64 flex items-center justify-center">
           {mediaFile?.type.startsWith("video/") ? (
@@ -126,6 +153,8 @@ export function StoryCreate() {
             />
           )}
           <button
+            type="button"
+            aria-label="Remove story attachment"
             onClick={handleRemoveMedia}
             className="absolute right-3 top-3 p-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white cursor-pointer"
           >
@@ -150,10 +179,14 @@ export function StoryCreate() {
       )}
 
       <div>
-        <label className="block text-xs font-semibold uppercase tracking-wider text-text-secondary mb-2">
+        <label
+          htmlFor="story-caption"
+          className="block text-xs font-semibold uppercase tracking-wider text-text-secondary mb-2"
+        >
           Caption (Optional)
         </label>
         <input
+          id="story-caption"
           type="text"
           value={caption}
           onChange={(e) => setCaption(e.target.value.slice(0, 200))}
@@ -165,8 +198,17 @@ export function StoryCreate() {
         </div>
       </div>
 
+      {error && (
+        <p role="alert" className="text-sm text-error">
+          {error}
+        </p>
+      )}
       <div className="flex justify-end gap-3 mt-4">
-        <Button variant="secondary" onClick={closeModal} disabled={isPending || isUploading}>
+        <Button
+          variant="secondary"
+          onClick={close}
+          disabled={isPending || isUploading}
+        >
           Cancel
         </Button>
         <Button

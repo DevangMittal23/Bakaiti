@@ -1,40 +1,8 @@
--- ============================================================
--- HUDdang Database Schema — Migration 0001: Core Tables
--- ============================================================
-
--- Drop old Wellsy tables if they exist to avoid relation already exists errors
-DROP TABLE IF EXISTS public.messages CASCADE;
-DROP TABLE IF EXISTS public.room_members CASCADE;
-DROP TABLE IF EXISTS public.chat_rooms CASCADE;
-DROP TABLE IF EXISTS public.friends CASCADE;
-DROP TABLE IF EXISTS public.friend_requests CASCADE;
-DROP TABLE IF EXISTS public.likes CASCADE;
-DROP TABLE IF EXISTS public.saved_posts CASCADE;
-DROP TABLE IF EXISTS public.follows CASCADE;
-DROP TABLE IF EXISTS public.comments CASCADE;
-DROP TABLE IF EXISTS public.posts CASCADE;
-DROP TABLE IF EXISTS public.post_media CASCADE;
-DROP TABLE IF EXISTS public.profiles CASCADE;
-DROP TABLE IF EXISTS public.blocked_users CASCADE;
-DROP TABLE IF EXISTS public.hashtags CASCADE;
-DROP TABLE IF EXISTS public.post_hashtags CASCADE;
-DROP TABLE IF EXISTS public.notifications CASCADE;
-
--- Drop new HUDdang tables if they exist to allow clean re-runs
-DROP TABLE IF EXISTS public.users CASCADE;
-DROP TABLE IF EXISTS public.friendships CASCADE;
-DROP TABLE IF EXISTS public.conversations CASCADE;
-DROP TABLE IF EXISTS public.participants CASCADE;
-DROP TABLE IF EXISTS public.message_reactions CASCADE;
-DROP TABLE IF EXISTS public.post_likes CASCADE;
-DROP TABLE IF EXISTS public.post_bookmarks CASCADE;
-DROP TABLE IF EXISTS public.comment_likes CASCADE;
-DROP TABLE IF EXISTS public.stories CASCADE;
-DROP TABLE IF EXISTS public.story_views CASCADE;
-DROP TABLE IF EXISTS public.call_logs CASCADE;
+-- Bakaiti: core schema. Apply once to an empty public schema.
+-- Forward changes belong in a new migration; never reset existing tables here.
 
 -- Enable required extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE EXTENSION IF NOT EXISTS "pg_trgm"; -- For fuzzy username search
 
 -- ============================================================
@@ -63,7 +31,7 @@ CREATE INDEX idx_users_online_at ON public.users(online_at DESC);
 -- FRIENDSHIPS
 -- ============================================================
 CREATE TABLE public.friendships (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   requester_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   addressee_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   status TEXT NOT NULL CHECK (status IN ('pending', 'accepted', 'blocked')),
@@ -81,7 +49,7 @@ CREATE INDEX idx_friendships_status ON public.friendships(status);
 -- CONVERSATIONS (DMs and Group Chats)
 -- ============================================================
 CREATE TABLE public.conversations (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   type TEXT NOT NULL CHECK (type IN ('dm', 'group')),
   name TEXT, -- NULL for DMs, required for groups
   avatar_url TEXT, -- NULL for DMs, optional for groups
@@ -97,7 +65,7 @@ CREATE INDEX idx_conversations_type ON public.conversations(type);
 -- PARTICIPANTS (Who is in which conversation)
 -- ============================================================
 CREATE TABLE public.participants (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('member', 'admin')),
@@ -113,7 +81,7 @@ CREATE INDEX idx_participants_user ON public.participants(user_id);
 -- MESSAGES
 -- ============================================================
 CREATE TABLE public.messages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
   sender_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   content TEXT, -- NULL for pure media messages
@@ -146,7 +114,7 @@ ALTER TABLE public.participants
 -- MESSAGE REACTIONS
 -- ============================================================
 CREATE TABLE public.message_reactions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   message_id UUID NOT NULL REFERENCES public.messages(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   emoji TEXT NOT NULL CHECK (length(emoji) <= 10),
@@ -160,7 +128,7 @@ CREATE INDEX idx_message_reactions_message ON public.message_reactions(message_i
 -- POSTS (Feed)
 -- ============================================================
 CREATE TABLE public.posts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   author_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   content TEXT CHECK (length(content) <= 2000),
   media_urls TEXT[] DEFAULT '{}', -- Array of Supabase Storage URLs
@@ -210,7 +178,7 @@ CREATE TABLE public.post_bookmarks (
 -- COMMENTS
 -- ============================================================
 CREATE TABLE public.comments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   post_id UUID NOT NULL REFERENCES public.posts(id) ON DELETE CASCADE,
   author_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   content TEXT NOT NULL CHECK (length(content) >= 1 AND length(content) <= 500),
@@ -238,7 +206,7 @@ CREATE TABLE public.comment_likes (
 -- NOTIFICATIONS
 -- ============================================================
 CREATE TABLE public.notifications (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   recipient_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   actor_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
   type TEXT NOT NULL CHECK (type IN (
@@ -267,7 +235,7 @@ CREATE INDEX idx_notifications_unread ON public.notifications(recipient_id, is_r
 -- STORIES
 -- ============================================================
 CREATE TABLE public.stories (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   author_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   media_url TEXT NOT NULL,
   media_type TEXT NOT NULL CHECK (media_type IN ('image', 'video')),
@@ -294,7 +262,7 @@ CREATE TABLE public.story_views (
 -- CALL LOGS
 -- ============================================================
 CREATE TABLE public.call_logs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   room_name TEXT NOT NULL UNIQUE,
   conversation_id UUID REFERENCES public.conversations(id) ON DELETE SET NULL,
   initiated_by UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,

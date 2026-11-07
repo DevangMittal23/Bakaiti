@@ -25,6 +25,8 @@ export function MessageList({
 }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const prevScrollHeightRef = useRef<number>(0);
+  const previousMessages = useRef<{ first?: string; last?: string }>({});
+  const nearBottom = useRef(true);
 
   // Auto scroll to bottom
   const scrollToBottom = useCallback(() => {
@@ -35,27 +37,34 @@ export function MessageList({
 
   // Scroll to bottom on initial load / new messages
   useEffect(() => {
-    const isNearBottom = containerRef.current
-      ? containerRef.current.scrollHeight - containerRef.current.scrollTop <=
-        containerRef.current.clientHeight + 150
-      : true;
-
-    if (isNearBottom) {
-      scrollToBottom();
+    const panel = containerRef.current;
+    if (!messages.length) {
+      previousMessages.current = {};
+      return;
     }
-  }, [messages.length, typingUsers.length, scrollToBottom]);
-
-  // Adjust scroll when loading older messages (reverse infinite scrolling)
-  useEffect(() => {
-    if (!isLoading && containerRef.current && prevScrollHeightRef.current > 0) {
-      const delta = containerRef.current.scrollHeight - prevScrollHeightRef.current;
-      containerRef.current.scrollTop = delta;
+    if (!panel) return;
+    const first = messages[0].id;
+    const last = messages.at(-1);
+    const prepended =
+      previousMessages.current.first &&
+      previousMessages.current.first !== first &&
+      previousMessages.current.last === last?.id;
+    if (prepended && prevScrollHeightRef.current > 0) {
+      panel.scrollTop = panel.scrollHeight - prevScrollHeightRef.current;
       prevScrollHeightRef.current = 0;
-    }
-  }, [isLoading]);
+    } else if (
+      !previousMessages.current.last ||
+      nearBottom.current ||
+      last?.sender_id === currentUserId
+    )
+      scrollToBottom();
+    previousMessages.current = { first, last: last?.id };
+  }, [messages, typingUsers.length, currentUserId, scrollToBottom]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
+    nearBottom.current =
+      target.scrollHeight - target.scrollTop - target.clientHeight < 150;
     if (target.scrollTop <= 10 && !isLoading && hasMore) {
       prevScrollHeightRef.current = target.scrollHeight;
       loadMore();
@@ -74,7 +83,9 @@ export function MessageList({
           {isLoading ? (
             <Loader2 className="h-4.5 w-4.5 animate-spin text-accent" />
           ) : (
-            <span className="text-[10px] text-text-muted">Scroll up to load older messages</span>
+            <span className="text-[10px] text-text-muted">
+              Scroll up to load older messages
+            </span>
           )}
         </div>
       )}
@@ -84,13 +95,14 @@ export function MessageList({
         <AnimatePresence initial={false}>
           {messages.map((message, index) => {
             const isOwn = message.sender_id === currentUserId;
-            
+
             // Show avatar only if previous message was from a different user or >2m ago
             const prevMessage = messages[index - 1];
             const showAvatar =
               !prevMessage ||
               prevMessage.sender_id !== message.sender_id ||
-              new Date(message.created_at).getTime() - new Date(prevMessage.created_at).getTime() >
+              new Date(message.created_at).getTime() -
+                new Date(prevMessage.created_at).getTime() >
                 120000;
 
             return (
@@ -122,9 +134,18 @@ export function MessageList({
             className="flex items-center gap-2 text-[10px] text-text-muted px-3.5 py-2 bg-surface border border-border/30 rounded-full max-w-fit ml-12 mt-1 shadow-sm shrink-0"
           >
             <div className="flex gap-0.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-accent animate-bounce" style={{ animationDelay: "0ms" }} />
-              <span className="h-1.5 w-1.5 rounded-full bg-accent animate-bounce" style={{ animationDelay: "150ms" }} />
-              <span className="h-1.5 w-1.5 rounded-full bg-accent animate-bounce" style={{ animationDelay: "300ms" }} />
+              <span
+                className="h-1.5 w-1.5 rounded-full bg-accent animate-bounce"
+                style={{ animationDelay: "0ms" }}
+              />
+              <span
+                className="h-1.5 w-1.5 rounded-full bg-accent animate-bounce"
+                style={{ animationDelay: "150ms" }}
+              />
+              <span
+                className="h-1.5 w-1.5 rounded-full bg-accent animate-bounce"
+                style={{ animationDelay: "300ms" }}
+              />
             </div>
             <span>
               {typingUsers.map((u) => u.display_name).join(", ")}{" "}

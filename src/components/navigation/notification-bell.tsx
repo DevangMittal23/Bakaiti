@@ -1,24 +1,30 @@
 "use client";
 
+import Link from "next/link";
 import { Bell } from "lucide-react";
-import { useNotifications } from "@/hooks/use-notifications";
+import { useNotificationStore } from "@/stores/notification-store";
 import { cn } from "@/lib/utils";
 
-interface NotificationBellProps {
-  className?: string;
-}
-
-export function NotificationBell({ className }: NotificationBellProps) {
-  const { unreadCount } = useNotifications();
-
+export function NotificationBell({ className }: { className?: string }) {
+  const unreadCount = useNotificationStore((state) => state.unreadCount);
   return (
-    <div className={cn("relative cursor-pointer", className)}>
-      <Bell className="h-6 w-6 text-text-secondary hover:text-text-primary transition-colors" />
+    <Link
+      href="/notifications"
+      aria-label={unreadCount ? `Activity, ${unreadCount} unread` : "Activity"}
+      className={cn(
+        "relative inline-flex h-11 w-11 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary",
+        className,
+      )}
+    >
+      <Bell className="h-5 w-5" />
       {unreadCount > 0 && (
-        <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-bold text-white shadow-md animate-pulse">
+        <span
+          className="absolute right-0 top-0 min-w-4 rounded-full bg-secondary px-1 text-center text-[9px] font-bold text-on-secondary"
+          aria-hidden="true"
+        >
           {unreadCount > 99 ? "99+" : unreadCount}
         </span>
       )}
-    </div>
+    </Link>
   );
 }

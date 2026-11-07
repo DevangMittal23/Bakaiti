@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 48" fill="none">
+  <g filter="url(#glow)">
+    <circle cx="24" cy="24" r="14" stroke="#A855F7" stroke-width="3" stroke-dasharray="60 28" />
+    <circle cx="24" cy="24" r="7" fill="#C084FC" />
+    <circle cx="34" cy="14" r="3" fill="#10B981" />
+  </g>
+  <text x="48" y="31" font-family="'Space Grotesk', sans-serif" font-size="24" font-weight="800" letter-spacing="-0.5px" fill="#FFFFFF">Bak<tspan fill="#C084FC">aiti</tspan></text>
+  <defs>
+    <filter id="glow" x="-5" y="-5" width="58" height="58" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+</svg>

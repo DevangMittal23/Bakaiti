@@ -23,7 +23,8 @@ export async function generateMetadata({
 
   return {
     title: `${profile.display_name} (@${profile.username})`,
-    description: profile.bio || `Check out ${profile.display_name}'s profile on HUDdang.`,
+    description:
+      profile.bio || `Check out ${profile.display_name}'s profile on Bakaiti.`,
   };
 }
 
@@ -45,10 +46,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
 
   return (
     <div className="space-y-6">
-      <ProfileHeader
-        profile={profile}
-        isOwnProfile={isOwnProfile}
-      />
+      <ProfileHeader profile={profile} isOwnProfile={isOwnProfile} />
       <ProfileTabs
         posts={posts as Post[]}
         userId={profile.id}

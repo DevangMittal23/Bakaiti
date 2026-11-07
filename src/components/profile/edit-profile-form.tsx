@@ -122,14 +122,14 @@ export function EditProfileForm({ profile }: EditProfileFormProps) {
         toast.success("Profile updated successfully!");
         router.push(`/profile/${username.trim()}`);
         router.refresh();
-      } catch (err: any) {
-        toast.error(err.message || "Failed to save profile changes");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to save profile changes");
       }
     });
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form noValidate onSubmit={handleSubmit} className="space-y-6">
       {/* Avatar Upload Container */}
       <div className="py-4 border-b border-white/[0.06]">
         <AvatarUpload displayName={displayName} />

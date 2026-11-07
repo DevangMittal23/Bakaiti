@@ -1,21 +1,13 @@
 import type { Metadata } from "next";
 import { getCurrentUser } from "@/actions/auth";
-import { signOut } from "@/actions/auth";
-import {
-  User,
-  Shield,
-  Bell,
-  Palette,
-  LogOut,
-  ChevronRight,
-  Edit3,
-} from "lucide-react";
+import { SignOutButton } from "@/components/auth/sign-out-button";
+import { User, Shield, Bell, Palette, ChevronRight, Edit3 } from "lucide-react";
 import Link from "next/link";
 import { UserAvatar } from "@/components/shared/user-avatar";
 
 export const metadata: Metadata = {
   title: "Settings",
-  description: "Manage your HUDdang account settings.",
+  description: "Manage your Bakaiti account settings.",
 };
 
 export default async function SettingsPage() {
@@ -32,13 +24,13 @@ export default async function SettingsPage() {
     {
       icon: Shield,
       title: "Privacy & Security",
-      description: "Control your privacy settings",
+      description: "See available privacy controls",
       href: "/settings/privacy",
     },
     {
       icon: Bell,
       title: "Notifications",
-      description: "Configure notification preferences",
+      description: "See available notification controls",
       href: "/settings/notifications",
     },
     {
@@ -80,7 +72,9 @@ export default async function SettingsPage() {
             <p className="font-semibold text-text-primary truncate">
               {profile.display_name}
             </p>
-            <p className="text-sm text-text-muted truncate">@{profile.username}</p>
+            <p className="text-sm text-text-muted truncate">
+              @{profile.username}
+            </p>
             <p className="text-xs text-text-muted truncate mt-0.5">
               {profile.bio || "Tap to add a bio ✨"}
             </p>
@@ -136,15 +130,7 @@ export default async function SettingsPage() {
       </div>
 
       {/* Sign out */}
-      <form action={signOut} className="mt-6">
-        <button
-          type="submit"
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-error/30 bg-error-muted px-4 py-3 text-sm font-medium text-error transition-all duration-200 hover:bg-error/20 active:scale-[0.98] cursor-pointer"
-        >
-          <LogOut className="h-4 w-4" />
-          Sign out
-        </button>
-      </form>
+      <SignOutButton />
     </div>
   );
 }

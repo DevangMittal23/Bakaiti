@@ -1,158 +1,153 @@
 "use client";
-
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Phone, Video } from "lucide-react";
+import { ArrowLeft, Phone, Video, ArrowUpRight, RefreshCw } from "lucide-react";
 import { useMessages } from "@/hooks/use-messages";
 import { usePresence } from "@/hooks/use-presence";
 import { useTyping } from "@/hooks/use-typing";
-import { useCall } from "@/hooks/use-call";
 import { useAuth } from "@/hooks/use-auth";
+import { useCall } from "@/hooks/use-call";
 import { markConversationRead } from "@/actions/messages";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { MessageList } from "./message-list";
 import { MessageInput } from "./message-input";
-import type { Conversation, User } from "@/types";
-
-interface ChatRoomProps {
-  conversationId: string;
-  initialConversation: Conversation;
-}
+import type { Conversation } from "@/types";
 
 export function ChatRoom({
   conversationId,
   initialConversation,
-}: ChatRoomProps) {
-  const { user: currentUser } = useAuth();
+}: {
+  conversationId: string;
+  initialConversation: Conversation;
+}) {
+  const { user } = useAuth();
+  const { startCall, activeCall } = useCall();
+  const [startingCall, setStartingCall] = useState(false);
   const { isOnline } = usePresence();
   const { typingUsers, broadcastTyping } = useTyping(conversationId);
-  const { startCall } = useCall();
-
-  const { messages, isLoading, hasMore, loadMore, sendMessage } =
+  const { messages, isLoading, hasMore, loadMore, sendMessage, error, reload } =
     useMessages(conversationId);
-
-  // Mark read on load and when messages change
   useEffect(() => {
-    markConversationRead(conversationId).catch(console.error);
+    void markConversationRead(conversationId).catch(() => {});
   }, [conversationId, messages.length]);
-
-  const isGroup = initialConversation.type === "group";
-
-  const otherParticipant = !isGroup
-    ? initialConversation.participants?.find(
-        (p) => p.user_id !== currentUser?.id
-      )
-    : null;
-  const otherUser = otherParticipant?.user;
-
-  // For group calls: collect all other participants' user objects
-  const groupParticipants: User[] = isGroup
-    ? (initialConversation.participants
-        ?.filter((p) => p.user_id !== currentUser?.id && p.user)
-        .map((p) => p.user as User) ?? [])
-    : [];
-
-  const displayName = isGroup
-    ? initialConversation.name || "Group Chat"
-    : otherUser?.display_name || "HUDdang User";
-
-  const isUserOnline =
-    !isGroup && otherUser ? isOnline(otherUser.id) : false;
-
-  const handleVoiceCall = () => {
-    if (isGroup) {
-      startCall(conversationId, "voice", groupParticipants);
-    } else if (otherUser) {
-      startCall(conversationId, "voice", [otherUser]);
+  const group = initialConversation.type === "group";
+  const other = initialConversation.participants?.find(
+    (p) => p.user_id !== user?.id,
+  )?.user;
+  const name = group
+    ? initialConversation.name || "Group chat"
+    : other?.display_name || "Bakaiti user";
+  const online = !group && other && isOnline(other.id);
+  const callParticipants = [
+    ...(initialConversation.participants?.flatMap((participant) => participant.user ? [participant.user] : []) ?? []),
+    ...(user ? [user] : []),
+  ].filter((participant, index, all) => all.findIndex((candidate) => candidate.id === participant.id) === index);
+  const beginCall = async (callType: "voice" | "video") => {
+    setStartingCall(true);
+    try {
+      await startCall(conversationId, callType, callParticipants);
+    } finally {
+      setStartingCall(false);
     }
   };
-
-  const handleVideoCall = () => {
-    if (isGroup) {
-      startCall(conversationId, "video", groupParticipants);
-    } else if (otherUser) {
-      startCall(conversationId, "video", [otherUser]);
-    }
-  };
-
-  const participantCount = initialConversation.participants?.length ?? 0;
-
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-background-secondary/20">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-border bg-background-secondary/80 backdrop-blur-lg px-4 py-3 shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
+    <div className="flex h-full min-h-0 flex-col">
+      <header className="flex min-h-20 shrink-0 items-center gap-3 border-b border-border bg-surface px-3 sm:px-5">
+        <Link
+          href="/chat"
+          aria-label="Back to messages"
+          className="flex h-11 w-10 shrink-0 items-center justify-center rounded-xl text-text-secondary hover:bg-surface-container lg:hidden"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <UserAvatar
+          src={group ? initialConversation.avatar_url : other?.avatar_url}
+          name={name}
+          size="md"
+          isOnline={Boolean(online)}
+        />
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate font-display text-lg font-semibold">
+            {name}
+          </h1>
+          <p className="mt-0.5 text-xs text-text-secondary">
+            {group
+              ? `${initialConversation.participants?.length || 0} people in this conversation`
+              : online
+                ? "Online now"
+                : "Your conversation, at your pace"}
+          </p>
+        </div>
+        {other && !group && (
           <Link
-            href="/chat"
-            className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-surface hover:text-text-secondary lg:hidden"
+            aria-label={`View ${name}'s profile`}
+            href={`/profile/${other.username}`}
+            className="hidden h-11 w-11 items-center justify-center rounded-xl text-text-secondary hover:bg-surface-container sm:flex"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowUpRight className="h-5 w-5" />
           </Link>
-
-          <div className="flex items-center gap-3 min-w-0">
-            <UserAvatar
-              src={
-                isGroup
-                  ? initialConversation.avatar_url
-                  : otherUser?.avatar_url
-              }
-              name={displayName}
-              size="sm"
-              isOnline={isUserOnline}
-              pulseType={otherUser?.pulse_type}
-            />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-text-primary">
-                {displayName}
-              </p>
-              <p className="text-xs text-text-muted truncate">
-                {isGroup
-                  ? `${participantCount} participant${participantCount !== 1 ? "s" : ""}`
-                  : isUserOnline
-                  ? "Online"
-                  : otherUser?.username
-                  ? `@${otherUser.username}`
-                  : ""}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Call Buttons — available for both DM and group */}
-        <div className="flex items-center gap-1.5">
+        )}
+        <div className="flex shrink-0 gap-1">
           <button
-            onClick={handleVoiceCall}
-            disabled={isGroup && groupParticipants.length === 0}
-            className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface hover:text-text-secondary cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            title={isGroup ? "Group Voice Call" : "Voice Call"}
+            type="button"
+            disabled={startingCall || Boolean(activeCall)}
+            aria-label="Start voice call"
+            title="Start voice call"
+            onClick={() => void beginCall("voice")}
+            className="flex h-11 w-9 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-surface-container hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <Phone className="h-4.5 w-4.5" />
+            <Phone className="h-4 w-4" />
           </button>
           <button
-            onClick={handleVideoCall}
-            disabled={isGroup && groupParticipants.length === 0}
-            className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface hover:text-text-secondary cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            title={isGroup ? "Group Video Call" : "Video Call"}
+            type="button"
+            disabled={startingCall || Boolean(activeCall)}
+            aria-label="Start video call"
+            title="Start video call"
+            onClick={() => void beginCall("video")}
+            className="flex h-11 w-9 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-surface-container hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <Video className="h-4.5 w-4.5" />
+            <Video className="h-4 w-4" />
           </button>
         </div>
-      </div>
-
-      {/* Message List */}
-      <div className="flex-1 min-h-0 relative">
+      </header>
+      {error && (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 border-b border-error/20 bg-error/5 px-5 py-3 text-xs text-error"
+        >
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => void reload()}
+            className="flex min-h-10 shrink-0 items-center gap-2 font-semibold"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Retry
+          </button>
+        </div>
+      )}
+      {!messages.length && !isLoading && !error && (
+        <div className="px-5 pt-8 text-center">
+          <p className="font-display text-xl font-semibold">
+            This is where it starts.
+          </p>
+          <p className="mt-2 text-xs text-text-secondary">
+            A thought, a meme, or just a hello. Make it yours.
+          </p>
+        </div>
+      )}
+      <div className="relative min-h-0 flex-1">
         <MessageList
           messages={messages}
           isLoading={isLoading}
           hasMore={hasMore}
           loadMore={loadMore}
           typingUsers={typingUsers}
-          currentUserId={currentUser?.id}
+          currentUserId={user?.id}
         />
       </div>
-
-      {/* Message Input */}
       <MessageInput
+        key={conversationId}
         onSendMessage={sendMessage}
         onTyping={broadcastTyping}
         conversationId={conversationId}

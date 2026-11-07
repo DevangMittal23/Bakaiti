@@ -15,7 +15,7 @@ export default function LoginPage() {
           Welcome back
         </h2>
         <p className="mt-1 text-sm text-text-secondary">
-          Sign in to trigger the HUDdang!
+          Sign in with your username and password.
         </p>
       </div>
 

@@ -1,4 +1,4 @@
-# 📱 HUDdang — Mobile Portability Audit
+# 📱 Bakaiti — Mobile Portability Audit
 
 > **Generated**: August 15, 2026  
 > **Scope**: Full codebase analysis for React Native mobile app viability  
@@ -21,7 +21,7 @@
 
 ## 1. Introduction
 
-The HUDdang codebase is a Next.js 16 (App Router) application using Supabase as the backend (PostgreSQL, Auth, Realtime, Storage), Zustand for state management, Framer Motion for animations, LiveKit for voice/video calls, and Tailwind CSS v4 for styling.
+The Bakaiti codebase is a Next.js 16 (App Router) application using Supabase as the backend (PostgreSQL, Auth, Realtime, Storage), Zustand for state management, Framer Motion for animations, LiveKit for voice/video calls, and Tailwind CSS v4 for styling.
 
 This audit categorizes **every source file** into one of three portability buckets:
 

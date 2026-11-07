@@ -51,18 +51,18 @@ export default function FriendsPage() {
           <h1 className="text-2xl font-bold tracking-tight text-text-primary">
             Your Circle
           </h1>
-          <p className="text-sm text-text-secondary">
-            Friends · Requests
-          </p>
+          <p className="text-sm text-text-secondary">Friends · Requests</p>
         </div>
-        
+
         <button
           onClick={refresh}
           disabled={isLoading}
           className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface-secondary text-text-muted hover:bg-surface-hover hover:text-text-primary active:scale-95 transition-all duration-150 disabled:opacity-50"
           title="Refresh connection list"
         >
-          <RefreshCw className={`h-4 w-4 ${socialLoading ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`h-4 w-4 ${socialLoading ? "animate-spin" : ""}`}
+          />
         </button>
       </div>
 
@@ -77,12 +77,16 @@ export default function FriendsPage() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`group relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-200 shrink-0 ${
-                isActive ? "text-accent" : "text-text-secondary hover:text-text-primary"
+                isActive
+                  ? "text-accent"
+                  : "text-text-secondary hover:text-text-primary"
               }`}
             >
-              <Icon className={`h-4 w-4 ${isActive ? "text-accent" : "text-text-muted group-hover:text-text-secondary"}`} />
+              <Icon
+                className={`h-4 w-4 ${isActive ? "text-accent" : "text-text-muted group-hover:text-text-secondary"}`}
+              />
               <span>{tab.label}</span>
-              
+
               {tab.count > 0 && (
                 <span
                   className={`flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1 text-[10px] font-bold ${
@@ -119,7 +123,9 @@ export default function FriendsPage() {
               className="flex flex-col items-center justify-center py-16"
             >
               <Loader2 className="h-8 w-8 animate-spin text-accent" />
-              <p className="mt-2 text-xs text-text-muted">Loading connection list...</p>
+              <p className="mt-2 text-xs text-text-muted">
+                Loading connection list...
+              </p>
             </motion.div>
           ) : (
             <motion.div

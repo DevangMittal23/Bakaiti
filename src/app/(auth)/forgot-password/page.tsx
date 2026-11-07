@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
+import { forgotPasswordSchema } from "@/lib/validations";
 
 export default function ForgotPasswordPage() {
   const [isPending, startTransition] = useTransition();
@@ -15,7 +16,8 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    const parsed = forgotPasswordSchema.safeParse({ email });
+    if (!parsed.success) { setError("Enter a valid email address."); return; }
 
     setError(null);
     startTransition(async () => {
@@ -27,8 +29,8 @@ export default function ForgotPasswordPage() {
           setIsSent(true);
           toast.success("Reset link sent!");
         }
-      } catch (err: any) {
-        setError(err.message || "Something went wrong");
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Something went wrong");
       }
     });
   };
@@ -60,7 +62,7 @@ export default function ForgotPasswordPage() {
             Check your email
           </h2>
           <p className="mt-2 text-sm text-text-secondary">
-            We've sent a password reset link to {email}.
+            If an account exists for {email}, its password reset link is on the way.
           </p>
           <Link
             href="/login"
@@ -77,11 +79,11 @@ export default function ForgotPasswordPage() {
               Reset your password
             </h2>
             <p className="mt-1 text-sm text-text-secondary">
-              Enter your email and we'll send you a reset link
+              Enter your email and we’ll send you a reset link
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form noValidate onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}

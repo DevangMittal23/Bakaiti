@@ -1,139 +1,132 @@
 "use client";
-
-import { useState, useRef } from "react";
-import { Send, Loader2, MessageSquare, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { Send, Loader2, X } from "lucide-react";
 import { createComment } from "@/actions/comments";
-import { UserAvatar } from "@/components/shared/user-avatar";
 import { CommentItem } from "./comment-item";
-import { useAuth } from "@/hooks/use-auth";
 import type { Comment } from "@/types";
-import { toast } from "sonner";
-
-interface PostCommentsProps {
-  postId: string;
-  comments: Comment[];
-  isLoading: boolean;
-  onCommentAdded: (comment: Comment) => void;
-}
-
 export function PostComments({
   postId,
   comments,
   isLoading,
   onCommentAdded,
-}: PostCommentsProps) {
-  const { user } = useAuth();
-  const [commentText, setCommentText] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [replyingTo, setReplyingTo] = useState<{ id: string; username: string } | null>(null);
-  const commentInputRef = useRef<HTMLInputElement>(null);
-
-  const rootComments = comments.filter((c) => c.parent_comment_id === null);
-
-  const handleCommentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!commentText.trim() || isSubmitting) return;
-
-    setIsSubmitting(true);
+}: {
+  postId: string;
+  comments: Comment[];
+  isLoading: boolean;
+  onCommentAdded: (comment: Comment) => void;
+}) {
+  const [text, setText] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reply, setReply] = useState<{ id: string; username: string } | null>(
+    null,
+  );
+  const input = useRef<HTMLInputElement>(null);
+  const submit = async () => {
+    if (pending || !text.trim()) return;
+    setPending(true);
+    setError(null);
     try {
-      const parentId = replyingTo ? replyingTo.id : null;
-      const res = await createComment(postId, commentText.trim(), parentId);
-      if (res && res.comment) {
-        onCommentAdded(res.comment as Comment);
-        setCommentText("");
-        setReplyingTo(null);
-        toast.success("Comment posted!");
+      const result = await createComment(
+        postId,
+        text.trim(),
+        reply?.id || null,
+      );
+      if (result.error) throw new Error(result.error);
+      if (result.comment) {
+        onCommentAdded(result.comment);
+        setText("");
+        setReply(null);
       }
-    } catch (err) {
-      console.error("Failed to post comment:", err);
-      toast.error("Failed to post comment");
+    } catch (failure) {
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : "Comment not posted. Try again.",
+      );
     } finally {
-      setIsSubmitting(false);
+      setPending(false);
     }
   };
-
-  const handleReplyClick = (commentId: string, username: string) => {
-    setReplyingTo({ id: commentId, username });
-    commentInputRef.current?.focus();
-  };
-
   return (
-    <div className="px-5 py-4 space-y-4">
-      {/* Input section */}
-      <form onSubmit={handleCommentSubmit} className="space-y-2">
-        {replyingTo && (
-          <div className="flex items-center justify-between bg-accent/15 border border-accent/35 rounded-xl px-3 py-1.5 text-xs text-accent">
-            <span className="flex items-center gap-1.5">
-              <span className="font-medium animate-pulse">Replying to</span>
-              <span className="font-semibold">@{replyingTo.username}</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => setReplyingTo(null)}
-              className="text-text-muted hover:text-accent transition-colors"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        )}
-        <div className="flex gap-3">
-          <UserAvatar
-            src={user?.avatar_url}
-            name={user?.display_name || "User"}
-            size="xs"
-            isOnline={true}
-          />
-          <div className="relative flex-1">
-            <input
-              ref={commentInputRef}
-              type="text"
-              placeholder={
-                replyingTo ? `Reply to @${replyingTo.username}...` : "Write a comment..."
-              }
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              className="w-full rounded-xl border border-border/50 bg-surface/50 py-2.5 pl-4 pr-10 text-xs text-text-primary placeholder:text-text-muted outline-none transition-all duration-200 focus:border-accent/60 focus:bg-surface focus:shadow-glow"
-            />
-            <button
-              type="submit"
-              disabled={!commentText.trim() || isSubmitting}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-accent disabled:text-text-muted transition-colors cursor-pointer"
-            >
-              {isSubmitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-            </button>
-          </div>
+    <div className="space-y-4 p-4 sm:p-5">
+      {reply && (
+        <div className="flex items-center justify-between rounded-xl bg-accent/10 pl-3 text-xs text-accent">
+          <span>Replying to @{reply.username}</span>
+          <button
+            type="button"
+            aria-label="Cancel reply"
+            onClick={() => setReply(null)}
+            className="flex h-11 w-11 items-center justify-center"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
+      )}
+      <form
+        noValidate
+        aria-busy={pending}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void submit();
+        }}
+        className="flex gap-2"
+      >
+        <label htmlFor={`comment-${postId}`} className="sr-only">
+          {reply ? "Write a reply" : "Write a comment"}
+        </label>
+        <input
+          ref={input}
+          id={`comment-${postId}`}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          disabled={pending}
+          maxLength={1000}
+          placeholder={
+            reply ? `Reply to @${reply.username}` : "Add to the conversation…"
+          }
+          className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 text-xs focus:border-accent focus:outline-none"
+        />
+        <button
+          type="submit"
+          aria-label="Post comment"
+          disabled={!text.trim() || pending}
+          className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-on-primary disabled:opacity-40"
+        >
+          {pending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Send className="h-4 w-4" />
+          )}
+        </button>
       </form>
-
-      {/* List section */}
-      <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1">
-        {isLoading ? (
-          <div className="flex justify-center py-6">
-            <Loader2 className="h-5 w-5 animate-spin text-accent" />
-          </div>
-        ) : rootComments.length > 0 ? (
-          rootComments.map((c) => (
+      {error && (
+        <p role="alert" className="text-xs text-error">
+          {error}
+        </p>
+      )}
+      {isLoading ? (
+        <p role="status" className="py-4 text-xs text-text-secondary">
+          Loading the conversation…
+        </p>
+      ) : comments.filter((c) => c.parent_comment_id === null).length ? (
+        comments
+          .filter((c) => c.parent_comment_id === null)
+          .map((comment) => (
             <CommentItem
-              key={c.id}
-              comment={c}
-              onReplyClick={handleReplyClick}
+              key={comment.id}
+              comment={comment}
+              onReplyClick={(id, username) => {
+                setReply({ id, username });
+                input.current?.focus();
+              }}
             />
           ))
-        ) : (
-          <div className="py-6 text-center">
-            <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-surface border border-border/40 text-text-muted">
-              <MessageSquare className="h-4.5 w-4.5" />
-            </div>
-            <p className="text-xs text-text-muted">
-              No comments yet. Say something!
-            </p>
-          </div>
-        )}
-      </div>
+      ) : (
+        <p className="py-4 text-center text-xs text-text-secondary">
+          Start the conversation. Leave the first comment.
+        </p>
+      )}
     </div>
   );
 }

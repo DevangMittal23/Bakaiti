@@ -1,7 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isAuthPage, isPublicPage, isPublicAuthApi } from "@/lib/security/routes";
 
 export async function updateSession(request: NextRequest) {
+  // Cron checks its bearer secret; auth endpoints validate credentials/codes themselves.
+  if (request.nextUrl.pathname === "/api/cron" || isPublicAuthApi(request.nextUrl.pathname)) return NextResponse.next();
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -38,31 +41,34 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Protected routes - redirect to login if not authenticated
-  const isAuthRoute =
-    request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/signup") ||
-    request.nextUrl.pathname.startsWith("/forgot-password");
-  const isPublicRoute =
-    request.nextUrl.pathname === "/" || isAuthRoute;
+  const pathname = request.nextUrl.pathname;
+  const isAuthRoute = isAuthPage(pathname);
+  const isPublicRoute = isPublicPage(pathname);
+
+  const redirectWithCookies = (path: string) => {
+    const url = request.nextUrl.clone();
+    url.pathname = path;
+    url.search = "";
+    const response = NextResponse.redirect(url);
+    for (const cookie of supabaseResponse.cookies.getAll()) response.cookies.set(cookie);
+    return response;
+  };
 
   if (!user && !isPublicRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return redirectWithCookies("/login");
   }
 
   // Redirect authenticated users away from auth pages
   if (user && isAuthRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/feed";
-    return NextResponse.redirect(url);
+    return redirectWithCookies("/feed");
   }
 
   // Redirect root to feed for authenticated users
   if (user && request.nextUrl.pathname === "/") {
-    const url = request.nextUrl.clone();
-    url.pathname = "/feed";
-    return NextResponse.redirect(url);
+    return redirectWithCookies("/feed");
   }
 
   return supabaseResponse;

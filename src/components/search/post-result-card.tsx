@@ -12,12 +12,6 @@ interface PostResultCardProps {
     created_at: string;
     likes_count: number;
     comments_count: number;
-    profiles?: {
-      id: string;
-      username: string;
-      display_name: string;
-      avatar_url: string | null;
-    } | null;
     author?: {
       id: string;
       username: string;
@@ -37,30 +31,31 @@ function highlightMatch(text: string, query: string): React.ReactNode {
 
   return parts.map((part, i) =>
     regex.test(part) ? (
-      <mark
-        key={i}
-        className="rounded bg-accent/20 px-0.5 text-accent"
-      >
+      <mark key={i} className="rounded bg-accent/20 px-0.5 text-accent">
         {part}
       </mark>
     ) : (
       part
-    )
+    ),
   );
 }
 
 export function PostResultCard({ post, searchQuery }: PostResultCardProps) {
-  const author = post.author || post.profiles;
+  const author = post.author;
 
   return (
     <Link
-      href="/feed"
+      href={`/post/${post.id}`}
       className="glass-card group block p-4 transition-all duration-200 hover:bg-surface-hover"
     >
       {/* Author */}
       {author && (
         <div className="mb-2 flex items-center gap-2">
-          <UserAvatar src={author.avatar_url} name={author.display_name} size="xs" />
+          <UserAvatar
+            src={author.avatar_url}
+            name={author.display_name}
+            size="xs"
+          />
           <span className="text-xs font-semibold text-text-primary group-hover:text-accent transition-colors">
             {author.display_name}
           </span>

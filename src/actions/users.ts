@@ -31,6 +31,7 @@ export async function updateProfile(updates: {
   bio?: string | null;
   avatar_url?: string | null;
   username?: string;
+  pulse_type?: string;
 }) {
   const supabase = await createClient();
   const {

@@ -1,4 +1,4 @@
-// src/types/index.ts — HUDdang unified type definitions
+// src/types/index.ts — Bakaiti unified type definitions
 // Every type maps 1:1 to the database schema
 
 // ============================================================
@@ -101,7 +101,7 @@ export type Conversation = {
   type: ConversationType
   name: string | null
   avatar_url: string | null
-  created_by: string
+  created_by: string | null
   last_message_at: string
   created_at: string
   participants?: Participant[]
@@ -161,6 +161,12 @@ export type MessageReaction = {
 }
 
 export type PostVisibility = 'public' | 'friends' | 'private'
+
+export type Hashtag = {
+  id: string
+  name: string
+  usage_count: number
+}
 
 export type LinkPreview = {
   title?: string
@@ -270,11 +276,13 @@ export type ModalType =
   | 'confirm-delete'
   | null
 
+export type CallParticipant = Pick<User, "id" | "username" | "display_name" | "avatar_url">
+
 export type ActiveCall = {
   roomName: string
   conversationId: string
   callType: CallType
-  participants: User[]
+  participants: CallParticipant[]
   token: string
 }
 
@@ -284,5 +292,5 @@ export type IncomingCall = {
   callType: CallType
   callerName: string
   callerAvatar: string | null
-  token: string
+  participants: CallParticipant[]
 }

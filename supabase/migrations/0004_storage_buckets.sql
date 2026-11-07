@@ -1,5 +1,5 @@
 -- ============================================================
--- HUDdang — Migration 0004: Storage Buckets (Idempotent)
+-- Bakaiti — Migration 0004: Storage Buckets (Idempotent)
 -- ============================================================
 
 -- 1. avatars bucket (public)

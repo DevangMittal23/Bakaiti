@@ -106,7 +106,7 @@ DECLARE
   u RECORD;
 BEGIN
   FOR u IN SELECT id FROM public.users LOOP
-    PERFORM calculate_signal_score(u.id);
+    PERFORM public.calculate_signal_score(u.id);
   END LOOP;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

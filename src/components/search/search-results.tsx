@@ -1,261 +1,283 @@
 "use client";
-
-import { useState, useCallback, useTransition } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useDebounce } from "@/hooks/use-debounce";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Search, X, Loader2, Hash, ArrowUpRight } from "lucide-react";
 import { searchUsers, searchPosts, searchHashtags } from "@/actions/search";
+import { useDebounce } from "@/hooks/use-debounce";
 import { UserResultCard } from "./user-result-card";
 import { PostResultCard } from "./post-result-card";
-import { Search, Loader2, Hash, Users, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useEffect } from "react";
-
-type SearchTab = "users" | "posts" | "hashtags";
-
-interface SearchResultsProps {
-  trendingHashtags: Array<{ id: string; name: string; usage_count: number }>;
-}
-
-export function SearchResults({ trendingHashtags }: SearchResultsProps) {
-  const [query, setQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<SearchTab>("users");
+import type { User, Post, Hashtag } from "@/types";
+type Tab = "users" | "posts" | "hashtags";
+export function SearchResults({
+  trendingHashtags,
+  initialQuery = "",
+  initialTab = "users",
+}: {
+  trendingHashtags: Hashtag[];
+  initialQuery?: string;
+  initialTab?: Tab;
+}) {
+  const router = useRouter();
+  const seed = `${initialQuery}:${initialTab}`;
+  const [draft, setDraft] = useState({
+    seed,
+    query: initialQuery,
+    tab: initialTab,
+  });
+  if (draft.seed !== seed)
+    setDraft({ seed, query: initialQuery, tab: initialTab });
   const [results, setResults] = useState<{
-    users: Array<{
-      id: string;
-      username: string;
-      display_name: string;
-      avatar_url: string | null;
-      bio: string | null;
-      is_online: boolean;
-      followers_count: number;
-    }>;
-    posts: Array<{
-      id: string;
-      content: string | null;
-      post_type: string;
-      likes_count: number;
-      comments_count: number;
-      created_at: string;
-      profiles: {
-        id: string;
-        username: string;
-        display_name: string;
-        avatar_url: string | null;
-      } | null;
-    }>;
-    hashtags: Array<{ id: string; name: string; usage_count: number }>;
+    users: User[];
+    posts: Post[];
+    hashtags: Hashtag[];
   }>({ users: [], posts: [], hashtags: [] });
-  const [isPending, startTransition] = useTransition();
-  const [hasSearched, setHasSearched] = useState(false);
-
-  const debouncedQuery = useDebounce(query, 300);
-
-  const doSearch = useCallback(
-    (searchQuery: string) => {
-      if (!searchQuery.trim()) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  const [composing, setComposing] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  const version = useRef(0);
+  const term = useDebounce(draft.query, 300);
+  useEffect(() => {
+    if (composing) return;
+    const request = ++version.current;
+    let active = true;
+    void (async () => {
+      setError(null);
+      if (!term.trim()) {
         setResults({ users: [], posts: [], hashtags: [] });
-        setHasSearched(false);
+        setLoading(false);
         return;
       }
-
-      setHasSearched(true);
-      startTransition(async () => {
-        const [usersResult, postsResult, hashtagsResult] = await Promise.all([
-          searchUsers(searchQuery),
-          searchPosts(searchQuery),
-          searchHashtags(searchQuery),
+      setLoading(true);
+      try {
+        const [users, posts, hashtags] = await Promise.all([
+          searchUsers(term.trim()),
+          searchPosts(term.trim()),
+          searchHashtags(term.trim()),
         ]);
-
+        if (!active || version.current !== request) return;
+        if (users.error || posts.error) throw new Error();
         setResults({
-          users: usersResult.results as unknown as typeof results.users,
-          posts: postsResult.results as unknown as typeof results.posts,
-          hashtags: hashtagsResult as unknown as typeof results.hashtags,
+          users: users.results || [],
+          posts: posts.results || [],
+          hashtags,
         });
-      });
-    },
-    []
-  );
-
-  useEffect(() => {
-    doSearch(debouncedQuery);
-  }, [debouncedQuery, doSearch]);
-
-  const tabs: { key: SearchTab; label: string; icon: typeof Users; count: number }[] = [
-    { key: "users", label: "Users", icon: Users, count: results.users.length },
-    { key: "posts", label: "Posts", icon: FileText, count: results.posts.length },
-    { key: "hashtags", label: "Tags", icon: Hash, count: results.hashtags.length },
-  ];
-
-  const isSearching = query.trim().length > 0;
-
+      } catch {
+        if (active && version.current === request)
+          setError(
+            "Search could not load. Your query is still here; try again.",
+          );
+      } finally {
+        if (active && version.current === request) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [term, composing, retry]);
+  const commit = (query = draft.query, tab = draft.tab) => {
+    const params = new URLSearchParams();
+    if (query.trim()) params.set("q", query.trim());
+    params.set("type", tab);
+    router.replace(`/search?${params}`, { scroll: false });
+  };
+  const clear = () => {
+    version.current++;
+    setDraft({ ...draft, query: "" });
+    setResults({ users: [], posts: [], hashtags: [] });
+    setError(null);
+    setLoading(false);
+    commit("", draft.tab);
+    input.current?.focus();
+  };
+  const count = results[draft.tab].length;
   return (
-    <div>
-      {/* Search input */}
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text-muted" />
-        <input
-          id="search-input"
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search HUDdang..."
-          autoFocus
-          className="w-full rounded-xl border border-border bg-surface py-3 pl-12 pr-4 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 hover:border-border-focus/40 focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus/50"
-        />
-        {isPending && (
-          <Loader2 className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-text-muted" />
-        )}
-      </div>
-
-      {/* Results or Trending */}
-      {isSearching ? (
-        <div className="mt-6">
-          {/* Tabs */}
-          <div className="flex gap-1 rounded-xl bg-surface p-1 mb-4">
-            {tabs.map((tab) => (
+    <div className="space-y-6">
+      <form
+        noValidate
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!composing) commit();
+        }}
+        className="flex gap-2"
+      >
+        <div className="relative min-w-0 flex-1">
+          <Search className="absolute left-4 top-4 h-5 w-5 text-text-secondary" />
+          <label htmlFor="bakaiti-search" className="sr-only">
+            Search people, posts and topics
+          </label>
+          <input
+            ref={input}
+            id="bakaiti-search"
+            type="search"
+            autoComplete="off"
+            value={draft.query}
+            onChange={(e) => {
+              version.current++;
+              setDraft({ ...draft, query: e.target.value });
+            }}
+            onCompositionStart={() => setComposing(true)}
+            onCompositionEnd={() => setComposing(false)}
+            placeholder="Who or what are you looking for?"
+            className="h-14 w-full rounded-2xl border border-border bg-surface pl-12 pr-12 text-sm focus:border-accent focus:outline-none"
+          />
+          {draft.query && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={clear}
+              className="absolute right-0 top-1 flex h-12 w-12 items-center justify-center text-text-secondary hover:text-accent"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        <button
+          type="submit"
+          className="min-h-14 rounded-2xl bg-accent px-4 text-xs font-bold text-on-primary"
+        >
+          Search
+        </button>
+      </form>
+      {draft.query.trim() ? (
+        <>
+          <div
+            className="flex gap-1 border-b border-border pb-3"
+            aria-label="Search categories"
+          >
+            {(["users", "posts", "hashtags"] as const).map((tab) => (
               <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                type="button"
+                key={tab}
+                aria-pressed={draft.tab === tab}
+                onClick={() => {
+                  setDraft({ ...draft, tab });
+                  commit(draft.query, tab);
+                }}
                 className={cn(
-                  "relative flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition-all duration-200",
-                  activeTab === tab.key
-                    ? "text-text-primary"
-                    : "text-text-muted hover:text-text-secondary"
+                  "min-h-11 flex-1 rounded-xl px-3 text-xs font-semibold transition-colors",
+                  draft.tab === tab
+                    ? "bg-accent/15 text-accent"
+                    : "text-text-secondary hover:bg-surface",
                 )}
               >
-                {activeTab === tab.key && (
-                  <motion.div
-                    layoutId="search-tab-active"
-                    className="absolute inset-0 rounded-lg bg-surface-hover"
-                    style={{ zIndex: -1 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                  />
-                )}
-                <tab.icon className="h-3.5 w-3.5" />
-                {tab.label}
-                {hasSearched && (
-                  <span className="text-[10px] text-text-muted">
-                    ({tab.count})
+                {tab === "users"
+                  ? "People"
+                  : tab === "posts"
+                    ? "Posts"
+                    : "Topics"}
+                {!loading && (
+                  <span className="ml-2 text-[10px]">
+                    {results[tab].length}
                   </span>
                 )}
               </button>
             ))}
           </div>
-
-          {/* Tab Content */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
+          {loading ? (
+            <div
+              role="status"
+              className="flex items-center justify-center gap-3 py-16 text-sm text-text-secondary"
             >
-              {activeTab === "users" && (
-                <div className="space-y-2">
-                  {results.users.length > 0 ? (
-                    results.users.map((user) => (
-                      <UserResultCard key={user.id} user={user} />
-                    ))
-                  ) : hasSearched && !isPending ? (
-                    <EmptyState text="No users found" />
-                  ) : null}
-                </div>
-              )}
-
-              {activeTab === "posts" && (
-                <div className="space-y-2">
-                  {results.posts.length > 0 ? (
-                    results.posts.map((post) => (
+              <Loader2 className="h-5 w-5 animate-spin text-accent" />
+              Looking around…
+            </div>
+          ) : error ? (
+            <div
+              role="alert"
+              className="rounded-2xl border border-error/20 p-6 text-sm text-error"
+            >
+              <p>{error}</p>
+              <button
+                type="button"
+                onClick={() => setRetry((v) => v + 1)}
+                className="mt-3 min-h-11 font-semibold underline"
+              >
+                Try again
+              </button>
+            </div>
+          ) : count ? (
+            <div className="space-y-3">
+              {draft.tab === "users"
+                ? results.users.map((user) => (
+                    <UserResultCard key={user.id} user={user} />
+                  ))
+                : draft.tab === "posts"
+                  ? results.posts.map((post) => (
                       <PostResultCard
                         key={post.id}
                         post={post}
-                        searchQuery={debouncedQuery}
+                        searchQuery={term}
                       />
                     ))
-                  ) : hasSearched && !isPending ? (
-                    <EmptyState text="No posts found" />
-                  ) : null}
-                </div>
-              )}
-
-              {activeTab === "hashtags" && (
-                <div className="space-y-2">
-                  {results.hashtags.length > 0 ? (
-                    results.hashtags.map((tag) => (
-                      <div
+                  : results.hashtags.map((tag) => (
+                      <Link
                         key={tag.id}
-                        className="glass-card flex items-center justify-between p-4 transition-colors hover:bg-surface-hover"
+                        href={`/search?q=${encodeURIComponent(`#${tag.name}`)}&type=posts`}
+                        className="flex items-center gap-3 rounded-xl border border-border bg-surface p-4 hover:border-accent/40"
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-subtle">
-                            <Hash className="h-5 w-5 text-accent" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-text-primary">
-                              #{tag.name}
-                            </p>
-                            <p className="text-xs text-text-muted">
-                              {tag.usage_count}{" "}
-                              {tag.usage_count === 1 ? "post" : "posts"}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : hasSearched && !isPending ? (
-                    <EmptyState text="No hashtags found" />
-                  ) : null}
-                </div>
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </div>
+                        <Hash className="h-5 w-5 text-accent" />
+                        <span className="flex-1 text-sm font-semibold">
+                          {tag.name}
+                        </span>
+                        <span className="text-xs text-text-secondary">
+                          {tag.usage_count} posts
+                        </span>
+                        <ArrowUpRight className="h-4 w-4 text-accent" />
+                      </Link>
+                    ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-border px-6 py-14 text-center">
+              <Search className="mx-auto mb-4 h-7 w-7 text-accent" />
+              <h2 className="font-display text-xl font-semibold">
+                Nothing here just yet.
+              </h2>
+              <p className="mt-2 text-sm text-text-secondary">
+                Try another spelling, a shorter search, or a different category.
+              </p>
+              <button
+                type="button"
+                onClick={clear}
+                className="mt-4 min-h-11 text-xs font-semibold text-accent"
+              >
+                Clear and start fresh
+              </button>
+            </div>
+          )}
+        </>
       ) : (
-        /* Trending section */
-        <div className="mt-8 glass-card p-6">
-          <h2 className="text-lg font-semibold text-text-primary mb-4">
-            Trending
+        <section>
+          <h2 className="mb-4 font-display text-xl font-semibold">
+            Follow your curiosity
           </h2>
-          {trendingHashtags.length > 0 ? (
-            <div className="space-y-1">
-              {trendingHashtags.map((tag, index) => (
-                <button
+          {trendingHashtags.length ? (
+            <div className="flex flex-wrap gap-2">
+              {trendingHashtags.map((tag) => (
+                <Link
                   key={tag.id}
-                  onClick={() => {
-                    setQuery(`#${tag.name}`);
-                    setActiveTab("hashtags");
-                  }}
-                  className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-hover"
+                  href={`/search?q=${encodeURIComponent(`#${tag.name}`)}&type=posts`}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-surface px-4 text-sm text-accent hover:border-accent"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-mono text-text-muted w-5">
-                      {index + 1}
-                    </span>
-                    <span className="text-sm font-medium text-accent">
-                      #{tag.name}
-                    </span>
-                  </div>
-                  <span className="text-xs text-text-muted">
-                    {tag.usage_count} posts
+                  <Hash className="h-3.5 w-3.5" />
+                  {tag.name}
+                  <span className="text-[10px] text-text-secondary">
+                    {tag.usage_count}
                   </span>
-                </button>
+                </Link>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-text-muted">No trending topics yet</p>
+            <p className="text-sm leading-6 text-text-secondary">
+              Look up a name, search a shared thought, or follow a hashtag to
+              find your people.
+            </p>
           )}
-        </div>
+        </section>
       )}
-    </div>
-  );
-}
-
-function EmptyState({ text }: { text: string }) {
-  return (
-    <div className="py-12 text-center">
-      <Search className="mx-auto mb-3 h-8 w-8 text-text-muted" />
-      <p className="text-sm text-text-muted">{text}</p>
     </div>
   );
 }

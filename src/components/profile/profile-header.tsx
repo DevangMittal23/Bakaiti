@@ -1,177 +1,198 @@
 "use client";
-
-import { useTransition } from "react";
-import { motion } from "framer-motion";
-import { Edit3, MessageCircle, UserPlus, UserCheck, UserMinus, Clock } from "lucide-react";
-import { getInitials, cn } from "@/lib/utils";
-import { useFriendStatus } from "@/hooks/use-friend-status";
-import { sendFriendRequest, removeFriend, acceptFriendRequest } from "@/actions/friendships";
-import type { User } from "@/types";
+import { useState } from "react";
 import Link from "next/link";
-import { toast } from "sonner";
+import {
+  Settings,
+  UserPlus,
+  UserCheck,
+  MessageCircle,
+  ArrowUpRight,
+  CalendarDays,
+  Loader2,
+  Share2,
+} from "lucide-react";
+import { useFriendStatus } from "@/hooks/use-friend-status";
+import { sendFriendRequest, acceptFriendRequest } from "@/actions/friendships";
 import { UserAvatar } from "@/components/shared/user-avatar";
-import { SignalBadge } from "@/components/shared/signal-badge";
-import { SignalScoreChart } from "@/components/profile/signal-score-chart";
-
-interface ProfileHeaderProps {
+import { EnergyScoreCard } from "./energy-score-card";
+import { PresenceSwitcher } from "./presence-switcher";
+import type { User } from "@/types";
+export function ProfileHeader({
+  profile,
+  isOwnProfile,
+}: {
   profile: User;
   isOwnProfile: boolean;
-}
-
-export function ProfileHeader({ profile, isOwnProfile }: ProfileHeaderProps) {
-  const { status, friendshipId, isRequester, isLoading, refresh } = useFriendStatus(profile.id);
-  const [isPending, startTransition] = useTransition();
-
-  const handleFriendAction = () => {
-    startTransition(async () => {
-      try {
-        if (!status) {
-          // Send request
-          const res = await sendFriendRequest(profile.id);
-          if (res.error) toast.error(res.error);
-          else toast.success("Friend request sent!");
-        } else if (status === "pending" && !isRequester && friendshipId) {
-          // Accept request
-          const res = await acceptFriendRequest(friendshipId);
-          if (res.error) toast.error(res.error);
-          else toast.success("Friend request accepted!");
-        } else if (status === "accepted" && friendshipId) {
-          // Remove friend
-          const res = await removeFriend(friendshipId);
-          if (res.error) toast.error(res.error);
-          else toast.success("Friend removed");
-        }
-        refresh();
-      } catch (err) {
-        toast.error("Failed to perform action");
-      }
-    });
+}) {
+  const { status, friendshipId, isRequester, isLoading, refresh } =
+    useFriendStatus(profile.id);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const connect = async () => {
+    if (pending) return;
+    setPending(true);
+    setError(null);
+    try {
+      const result =
+        status === "pending" && !isRequester && friendshipId
+          ? await acceptFriendRequest(friendshipId)
+          : await sendFriendRequest(profile.id);
+      if (result.error) throw new Error(result.error);
+      refresh();
+    } catch (failure) {
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : "Could not update your connection. Try again.",
+      );
+    } finally {
+      setPending(false);
+    }
   };
-
+  const share = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/profile/${profile.username}`,
+      );
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setError(
+        "Could not copy the profile link. Copy this page’s address instead.",
+      );
+    }
+  };
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-    >
-      {/* Cover Image Placeholder */}
-      <div className="relative h-40 overflow-hidden rounded-2xl sm:h-52">
-        <div
-          className="h-full w-full"
-          style={{
-            background:
-              "linear-gradient(135deg, hsl(263 70% 30%), hsl(290 65% 25%), hsl(240 30% 15%))",
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-background/60 to-transparent" />
-      </div>
-
-      {/* Info bar */}
-      <div className="relative px-1">
-        {/* Avatar */}
-        <div className="relative -mt-16 ml-4 sm:-mt-20">
-          <div className="relative inline-block rounded-full border-4 border-background bg-background">
-            <UserAvatar
-              src={profile.avatar_url}
-              name={profile.display_name}
-              size="xl"
-              className="ring-0"
-              pulseType={profile.pulse_type}
-            />
+    <div className="mx-auto max-w-3xl space-y-5">
+      <section className="overflow-hidden rounded-2xl border border-border bg-surface">
+        <div className="relative h-28 overflow-hidden border-b border-border bg-accent/10 sm:h-36">
+          <div
+            aria-hidden="true"
+            className="absolute -right-8 -top-16 font-display text-[150px] font-bold leading-none tracking-tighter text-accent/10 sm:text-[200px]"
+          >
+            hello.
           </div>
+          <p className="absolute left-5 top-5 text-[10px] font-bold uppercase tracking-[0.2em] text-accent">
+            One of a kind. One of us.
+          </p>
         </div>
-
-        {/* Action Controls */}
-        <div className="absolute right-0 top-2 flex items-center gap-2 sm:top-4">
-          {isOwnProfile ? (
-            <Link
-              href="/settings"
-              className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-all duration-200 hover:bg-surface-hover active:scale-95 cursor-pointer"
-            >
-              <Edit3 className="h-4 w-4" />
-              Edit Profile
-            </Link>
-          ) : (
-            <>
-              {/* Friend Button */}
-              {!isLoading && (
-                <button
-                  onClick={handleFriendAction}
-                  disabled={isPending || (status === "pending" && isRequester)}
-                  className={cn(
-                    "flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-95 disabled:opacity-50 cursor-pointer",
-                    !status && "bg-accent text-white hover:bg-accent-hover",
-                    status === "pending" &&
-                      isRequester &&
-                      "bg-surface border border-border text-text-secondary cursor-not-allowed",
-                    status === "pending" &&
-                      !isRequester &&
-                      "bg-success text-white hover:bg-success/90",
-                    status === "accepted" &&
-                      "border border-border bg-surface text-text-primary hover:bg-surface-hover hover:text-error hover:border-error/30"
-                  )}
+        <div className="px-5 pb-6 sm:px-7">
+          <div className="-mt-10 flex items-end justify-between gap-4">
+            <div className="rounded-full border-[6px] border-surface bg-surface">
+              <UserAvatar
+                src={profile.avatar_url}
+                name={profile.display_name}
+                size="xl"
+              />
+            </div>
+            <div className="mb-1 flex gap-2">
+              <button
+                type="button"
+                aria-label="Copy profile link"
+                onClick={() => void share()}
+                className="flex h-11 w-11 items-center justify-center rounded-xl border border-border text-text-secondary hover:text-accent"
+              >
+                <Share2 className="h-4 w-4" />
+              </button>
+              {isOwnProfile ? (
+                <Link
+                  href="/settings/profile"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border px-4 text-xs font-semibold hover:bg-surface-container"
                 >
-                  {!status && (
-                    <>
-                      <UserPlus className="h-4 w-4" />
-                      Add Friend
-                    </>
+                  <Settings className="h-4 w-4" />
+                  Edit profile
+                </Link>
+              ) : (
+                <Link
+                  href={`/chat?user=${encodeURIComponent(profile.username)}`}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-accent px-4 text-xs font-bold text-on-primary"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Message
+                </Link>
+              )}
+            </div>
+          </div>
+          <h1 className="mt-4 break-words font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+            {profile.display_name}
+          </h1>
+          <p className="mt-1 text-sm text-text-secondary">
+            @{profile.username}
+          </p>
+          <p className="mt-4 max-w-xl whitespace-pre-wrap break-words text-sm leading-7 text-text-primary">
+            {profile.bio ||
+              (isOwnProfile
+                ? "Your story, in your own words. Add a bio to introduce yourself."
+                : "Still writing their story.")}
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-text-secondary">
+            <span className="inline-flex items-center gap-1.5">
+              <CalendarDays className="h-3.5 w-3.5" />
+              Joined{" "}
+              {new Date(profile.created_at).toLocaleDateString("en-IN", {
+                month: "long",
+                year: "numeric",
+              })}
+            </span>
+            {copied && (
+              <span role="status" className="text-accent">
+                Profile link copied
+              </span>
+            )}
+          </div>
+          {!isOwnProfile && (
+            <div className="mt-5">
+              {status === "accepted" ? (
+                <span className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-secondary/10 px-4 text-xs font-semibold text-secondary">
+                  <UserCheck className="h-4 w-4" />
+                  In your circle
+                </span>
+              ) : status === "blocked" ? (
+                <p className="text-xs text-text-secondary">
+                  This connection is unavailable.
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void connect()}
+                  disabled={
+                    pending ||
+                    isLoading ||
+                    (status === "pending" && isRequester)
+                  }
+                  className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-accent/30 px-4 text-xs font-semibold text-accent hover:bg-accent/10 disabled:opacity-50"
+                >
+                  {pending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <UserPlus className="h-4 w-4" />
                   )}
-                  {status === "pending" && isRequester && (
-                    <>
-                      <Clock className="h-4 w-4" />
-                      Request Sent
-                    </>
-                  )}
-                  {status === "pending" && !isRequester && (
-                    <>
-                      <UserCheck className="h-4 w-4" />
-                      Accept Request
-                    </>
-                  )}
-                  {status === "accepted" && (
-                    <>
-                      <UserMinus className="h-4 w-4" />
-                      Remove Friend
-                    </>
-                  )}
+                  {status === "pending"
+                    ? isRequester
+                      ? "Request sent"
+                      : "Accept friend request"
+                    : "Add to your circle"}
+                  <ArrowUpRight className="h-3.5 w-3.5" />
                 </button>
               )}
-
-              {/* Message Link */}
-              <Link
-                href={`/chat?user=${profile.username}`}
-                className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-sm text-text-primary transition-all duration-200 hover:bg-surface-hover active:scale-95 cursor-pointer"
-                title="Message"
-              >
-                <MessageCircle className="h-4 w-4" />
-              </Link>
-            </>
+            </div>
           )}
-        </div>
-
-        {/* Identity Details */}
-        <div className="mt-4 space-y-3">
-          <div>
-            <h1 className="text-2xl font-bold text-text-primary">
-              {profile.display_name}
-            </h1>
-            <p className="text-sm text-text-muted">@{profile.username}</p>
-          </div>
-
-          {profile.bio && (
-            <p className="text-[15px] leading-relaxed text-text-secondary max-w-xl">
-              {profile.bio}
+          {error && (
+            <p role="alert" className="mt-3 text-xs text-error">
+              {error}
             </p>
           )}
-
-          {/* Signal Score */}
-          <div className="flex items-center gap-3 mt-2">
-            <SignalBadge userId={profile.id} variant="full" />
-          </div>
-          <SignalScoreChart userId={profile.id} />
         </div>
+      </section>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <PresenceSwitcher
+          initialPulse={profile.pulse_type}
+          isOwnProfile={isOwnProfile}
+          userId={profile.id}
+        />
+        <EnergyScoreCard score={profile.signal_score ?? 0} userId={profile.id} />
       </div>
-    </motion.div>
+    </div>
   );
 }

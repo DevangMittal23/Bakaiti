@@ -1,54 +1,56 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import {
+  Space_Grotesk,
+  Plus_Jakarta_Sans,
+  JetBrains_Mono,
+} from "next/font/google";
 import Script from "next/script";
+import { Toaster } from "sonner";
+import { AuthProvider } from "@/components/auth/auth-provider";
+import { MotionProvider } from "@/components/shared/motion-provider";
+import { initializeAppearance } from "@/lib/appearance";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-sans",
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-grotesk",
   subsets: ["latin"],
   display: "swap",
 });
-
+const plusJakartaSans = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
+  subsets: ["latin"],
+  display: "swap",
+});
 const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-mono",
+  variable: "--font-jetbrains",
   subsets: ["latin"],
   display: "swap",
 });
 
 export const metadata: Metadata = {
   title: {
-    default: "WELLSY — Where conversations feel alive",
-    template: "%s | WELLSY",
+    default: "Bakaiti — Your people. Your frequency.",
+    template: "%s | Bakaiti",
   },
   description:
-    "A modern social platform where conversations feel alive. Connect, share, and experience premium social interactions.",
-  keywords: [
-    "social media",
-    "messenger",
-    "chat",
-    "connect",
-    "wellsy",
-    "social platform",
-  ],
-  authors: [{ name: "WELLSY" }],
+    "The social messenger for your kind of chaos. Catch up with your circle, share a moment, and let your Pulse do the talking.",
+  keywords: ["Bakaiti", "social messenger", "chat", "friends", "Pulse"],
+  authors: [{ name: "Bakaiti" }],
   openGraph: {
     type: "website",
     locale: "en_US",
-    siteName: "WELLSY",
-    title: "WELLSY — Where conversations feel alive",
-    description:
-      "A modern social platform where conversations feel alive.",
+    siteName: "Bakaiti",
+    title: "Bakaiti — Your people. Your frequency.",
+    description: "Conversations, little moments, and your kind of people.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "WELLSY",
-    description:
-      "A modern social platform where conversations feel alive.",
+    title: "Bakaiti",
+    description: "Your people. Your frequency.",
   },
 };
-
 export const viewport: Viewport = {
-  themeColor: "#09090b",
+  themeColor: "#0d0f14",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
@@ -62,75 +64,42 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${jetbrainsMono.variable} dark`}
+      data-scroll-behavior="smooth"
+      className={`${spaceGrotesk.variable} ${plusJakartaSans.variable} ${jetbrainsMono.variable} dark`}
       suppressHydrationWarning
     >
-      <body className="min-h-dvh bg-background text-text-primary antialiased">
+      <head>
+        {/* This legacy icon font lives in the shared App Router root layout. */}
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
+        />
+      </head>
+      <body className="min-h-dvh bg-background font-body text-text-primary antialiased">
         <Script
           id="theme-init"
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
-            __html: `
-              try {
-                const storedTheme = localStorage.getItem("wellsy_appearance_theme") || "sleek";
-                const storedAccent = localStorage.getItem("wellsy_appearance_accent") || "purple";
-                
-                const themes = {
-                  sleek: {
-                    background: "hsl(240 10% 3.9%)",
-                    secondary: "hsl(240 6% 6%)",
-                    surface: "hsl(240 6% 10%)",
-                    surfaceHover: "hsl(240 5% 14%)",
-                    border: "hsl(240 4% 16%)"
-                  },
-                  amethyst: {
-                    background: "hsl(264 25% 4.5%)",
-                    secondary: "hsl(264 20% 7%)",
-                    surface: "hsl(264 18% 11%)",
-                    surfaceHover: "hsl(264 16% 15%)",
-                    border: "hsl(264 15% 18%)"
-                  },
-                  midnight: {
-                    background: "hsl(222 35% 4.5%)",
-                    secondary: "hsl(222 28% 7%)",
-                    surface: "hsl(222 24% 11%)",
-                    surfaceHover: "hsl(222 20% 15%)",
-                    border: "hsl(222 18% 18%)"
-                  },
-                  obsidian: {
-                    background: "hsl(0 0% 0%)",
-                    secondary: "hsl(0 0% 3%)",
-                    surface: "hsl(0 0% 7%)",
-                    surfaceHover: "hsl(0 0% 11%)",
-                    border: "hsl(0 0% 14%)"
-                  }
-                };
-
-                const accents = {
-                  purple: { color: "hsl(263 70% 58%)", hover: "hsl(263 70% 65%)" },
-                  pink: { color: "hsl(340 82% 52%)", hover: "hsl(340 82% 58%)" },
-                  teal: { color: "hsl(187 90% 42%)", hover: "hsl(187 90% 48%)" },
-                  green: { color: "hsl(142 70% 45%)", hover: "hsl(142 70% 50%)" },
-                  amber: { color: "hsl(38 90% 50%)", hover: "hsl(38 90% 55%)" }
-                };
-
-                const root = document.documentElement;
-                
-                const theme = themes[storedTheme] || themes.sleek;
-                root.style.setProperty("--color-background", theme.background);
-                root.style.setProperty("--color-background-secondary", theme.secondary);
-                root.style.setProperty("--color-surface", theme.surface);
-                root.style.setProperty("--color-surface-hover", theme.surfaceHover);
-                root.style.setProperty("--color-border", theme.border);
-
-                const accent = accents[storedAccent] || accents.purple;
-                root.style.setProperty("--color-accent", accent.color);
-                root.style.setProperty("--color-accent-hover", accent.hover);
-              } catch (e) {}
-            `,
+            __html: `(${initializeAppearance.toString()})();`,
           }}
         />
-        {children}
+        <MotionProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </MotionProvider>
+        <Toaster
+          theme="dark"
+          position="bottom-right"
+          richColors
+          closeButton
+          toastOptions={{
+            style: {
+              background: "var(--bg-surface-container)",
+              color: "var(--text-primary)",
+              borderColor: "var(--border-default)",
+            },
+          }}
+        />
       </body>
     </html>
   );

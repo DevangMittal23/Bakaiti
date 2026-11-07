@@ -1,55 +1,50 @@
 "use client";
-
 import { cn } from "@/lib/utils";
 import { ConversationList } from "./conversation-list";
 import type { Conversation, User } from "@/types";
-
-interface ChatLayoutProps {
-  rooms: Conversation[];
-  friends?: User[];
-  activeRoomId?: string;
-  children: React.ReactNode;
-}
 
 export function ChatLayout({
   rooms,
   friends = [],
   activeRoomId,
   children,
-}: ChatLayoutProps) {
-  const isInsideRoom = !!activeRoomId;
-
+}: {
+  rooms: Conversation[];
+  friends?: User[];
+  activeRoomId?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex h-[calc(100dvh-80px)] lg:h-[calc(100dvh-48px)] gap-0 -mx-4 lg:mx-0 -mt-4 lg:mt-0 border-y lg:border border-border/20 lg:rounded-3xl overflow-hidden bg-background-secondary/40 backdrop-blur-md shadow-2xl">
-      {/* Left side: conversation list + friends picker */}
-      <div
+    <div className="flex h-full min-h-0 overflow-hidden border-border bg-surface lg:rounded-2xl lg:border">
+      <aside
+        aria-label="Conversation inbox"
         className={cn(
-          "w-full lg:w-[320px] shrink-0 border-r border-border/20 flex flex-col bg-surface/10 p-4 overflow-hidden",
-          isInsideRoom && "hidden lg:flex"
+          "flex w-full shrink-0 flex-col border-r border-border lg:w-[320px] xl:w-[350px]",
+          activeRoomId && "hidden lg:flex",
         )}
       >
-        <div className="mb-4 shrink-0">
-          <h1 className="text-xl font-bold text-text-primary tracking-tight">
-            Chats
+        <div className="px-5 pb-4 pt-6">
+          <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-secondary">
+            <span className="h-1.5 w-1.5 rounded-full bg-secondary" />
+            Your corner of the internet
+          </div>
+          <h1 className="font-display text-3xl font-semibold tracking-tight">
+            Messages<span className="text-accent">.</span>
           </h1>
-          <p className="text-xs text-text-muted">
-            Your active conversations
-          </p>
         </div>
-        <div className="flex-1 min-h-0">
+        <div className="min-h-0 flex-1 px-3 pb-3">
           <ConversationList initialRooms={rooms} friends={friends} />
         </div>
-      </div>
-
-      {/* Right side: Active conversation or placeholder */}
-      <div
+      </aside>
+      <section
+        aria-label="Conversation"
         className={cn(
-          "flex-1 flex flex-col bg-surface/5 overflow-hidden relative",
-          !isInsideRoom && "hidden lg:flex"
+          "relative min-w-0 flex-1 flex-col bg-background",
+          activeRoomId ? "flex" : "hidden lg:flex",
         )}
       >
         {children}
-      </div>
+      </section>
     </div>
   );
 }

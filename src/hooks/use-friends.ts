@@ -8,6 +8,7 @@ import {
   sendFriendRequest,
   acceptFriendRequest,
   rejectFriendRequest,
+  getFriendshipStatus,
   removeFriend as removeFriendAction,
 } from "@/actions/friendships";
 import type { User, Friendship } from "@/types";
@@ -21,7 +22,6 @@ export function useFriends(userId?: string) {
 
   const refresh = useCallback(async () => {
     if (!userId) return;
-    setIsLoading(true);
     try {
       const [fData, rData, sData] = await Promise.all([
         getFriends(),
@@ -29,7 +29,7 @@ export function useFriends(userId?: string) {
         getSuggestedUsers(),
       ]);
       setFriends(fData);
-      setPendingRequests(rData as any[]);
+      setPendingRequests(rData as Friendship[]);
       setSuggestions(sData);
     } catch (err) {
       console.error("Failed to load friendships:", err);
@@ -39,9 +39,9 @@ export function useFriends(userId?: string) {
   }, [userId]);
 
   useEffect(() => {
-    if (userId) {
-      refresh();
-    }
+    let current = true;
+    queueMicrotask(() => { if (current && userId) void refresh(); });
+    return () => { current = false; };
   }, [userId, refresh]);
 
   const sendRequest = async (targetUserId: string) => {
@@ -54,7 +54,7 @@ export function useFriends(userId?: string) {
       toast.success("Friend request sent!");
       refresh();
       return res;
-    } catch (err) {
+    } catch {
       toast.error("Failed to send request");
     }
   };
@@ -69,7 +69,7 @@ export function useFriends(userId?: string) {
       toast.success("Request accepted!");
       refresh();
       return res;
-    } catch (err) {
+    } catch {
       toast.error("Failed to accept request");
     }
   };
@@ -84,14 +84,20 @@ export function useFriends(userId?: string) {
       toast.success("Request declined");
       refresh();
       return res;
-    } catch (err) {
+    } catch {
       toast.error("Failed to decline request");
     }
   };
 
-  const removeFriend = async (friendshipId: string) => {
+  const removeFriend = async (friendUserId: string) => {
     try {
-      const res = await removeFriendAction(friendshipId);
+      const relationship = await getFriendshipStatus(friendUserId);
+      if (!relationship.friendshipId || relationship.status !== "accepted") {
+        const result = { error: "This friendship is no longer available. Refresh your circle." };
+        toast.error(result.error);
+        return result;
+      }
+      const res = await removeFriendAction(relationship.friendshipId);
       if (res.error) {
         toast.error(res.error);
         return res;
@@ -99,7 +105,7 @@ export function useFriends(userId?: string) {
       toast.success("Friend removed");
       refresh();
       return res;
-    } catch (err) {
+    } catch {
       toast.error("Failed to remove friend");
     }
   };

@@ -1,6 +1,6 @@
 // App-wide constants
 
-export const APP_NAME = "HUDdang";
+export const APP_NAME = "Bakaiti";
 export const APP_TAGLINE = "Where the chaos happens.";
 
 // Pagination

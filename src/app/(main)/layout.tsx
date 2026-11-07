@@ -1,6 +1,8 @@
 import { Sidebar } from "@/components/navigation/sidebar";
 import { BottomNav } from "@/components/navigation/bottom-nav";
+import { Header } from "@/components/navigation/header";
 import { ContentContainer } from "@/components/navigation/content-container";
+import { NavigationSync } from "@/components/navigation/navigation-sync";
 import { CallModal } from "@/components/chat/call-modal";
 import { CallRoom } from "@/components/chat/call-room";
 import { ModalRenderer } from "@/components/shared/modal-renderer";
@@ -11,23 +13,22 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-dvh bg-background">
-      {/* Desktop sidebar */}
+    <div className="min-h-dvh bg-background text-text-primary">
+      <a
+        href="#main-content"
+        className="fixed left-4 top-3 z-[100] -translate-y-24 rounded-xl bg-accent px-4 py-3 font-semibold text-on-primary focus:translate-y-0"
+      >
+        Skip to content
+      </a>
+      <NavigationSync />
       <Sidebar />
-
-      {/* Main content area */}
-      <main className="flex-1 lg:ml-[260px] flex flex-col min-h-dvh">
+      <Header />
+      <main id="main-content" tabIndex={-1} className="min-w-0 lg:ml-[240px]">
         <ContentContainer>{children}</ContentContainer>
       </main>
-
-      {/* Mobile bottom nav */}
       <BottomNav />
-
-      {/* Global Call Overlays */}
       <CallModal />
       <CallRoom />
-
-      {/* Global Modal Renderer (groups, etc.) */}
       <ModalRenderer />
     </div>
   );

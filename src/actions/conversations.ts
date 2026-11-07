@@ -53,18 +53,25 @@ export async function createDM(otherUserId: string) {
   if (error) return { error: error.message };
 
   // Add both participants
-  await supabase.from("participants").insert([
-    {
-      conversation_id: conversation.id,
-      user_id: user.id,
-      role: "member",
-    },
-    {
-      conversation_id: conversation.id,
-      user_id: otherUserId,
-      role: "member",
-    },
-  ]);
+  const { error: participantError } = await supabase
+    .from("participants")
+    .insert([
+      {
+        conversation_id: conversation.id,
+        user_id: user.id,
+        role: "member",
+      },
+      {
+        conversation_id: conversation.id,
+        user_id: otherUserId,
+        role: "member",
+      },
+    ]);
+
+  if (participantError) {
+    await supabase.from("conversations").delete().eq("id", conversation.id);
+    return { error: "Could not create this conversation. Please try again." };
+  }
 
   return { conversation: conversation as Conversation };
 }
@@ -103,7 +110,13 @@ export async function createGroup(name: string, memberIds: string[]) {
     })),
   ];
 
-  await supabase.from("participants").insert(participantInserts);
+  const { error: participantError } = await supabase
+    .from("participants")
+    .insert(participantInserts);
+  if (participantError) {
+    await supabase.from("conversations").delete().eq("id", conversation.id);
+    return { error: "Could not add the group members. Please try again." };
+  }
 
   // Notify members
   const notificationInserts = memberIds.map((id) => ({
@@ -147,7 +160,7 @@ export async function getConversations(): Promise<Conversation[]> {
         id, user_id, role, last_read_message_id, joined_at,
         user:users(*)
       )
-    `
+    `,
     )
     .in("id", conversationIds)
     .order("last_message_at", { ascending: false })
@@ -170,39 +183,44 @@ export async function getConversations(): Promise<Conversation[]> {
 
       // Unread count
       const participant = convo.participants?.find(
-        (p: { user_id: string }) => p.user_id === user.id
+        (p: { user_id: string }) => p.user_id === user.id,
       );
       let unreadCount = 0;
 
+      let unreadQuery = supabase
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .eq("conversation_id", convo.id)
+        .neq("sender_id", user.id)
+        .eq("is_deleted", false);
       if (participant?.last_read_message_id) {
-        const { count } = await supabase
+        const { data: marker, error: markerError } = await supabase
           .from("messages")
-          .select("id", { count: "exact", head: true })
+          .select("created_at")
+          .eq("id", participant.last_read_message_id)
           .eq("conversation_id", convo.id)
-          .gt("created_at", lastMessage?.created_at || "1970-01-01");
-        // Approximate: count messages after last read
-        unreadCount = 0; // Will refine with proper timestamp
-      } else if (lastMessage) {
-        const { count } = await supabase
-          .from("messages")
-          .select("id", { count: "exact", head: true })
-          .eq("conversation_id", convo.id);
-        unreadCount = count || 0;
+          .maybeSingle();
+        if (markerError) throw new Error("Could not load the read position");
+        if (marker)
+          unreadQuery = unreadQuery.gt("created_at", marker.created_at);
       }
+      const { count, error: unreadError } = await unreadQuery;
+      if (unreadError) throw new Error("Could not load unread messages");
+      unreadCount = count || 0;
 
       return {
         ...convo,
         last_message: lastMessage,
         unread_count: unreadCount,
       } as Conversation;
-    })
+    }),
   );
 
   return enriched;
 }
 
 export async function getConversation(
-  conversationId: string
+  conversationId: string,
 ): Promise<Conversation | null> {
   const supabase = await createClient();
   const {
@@ -220,7 +238,7 @@ export async function getConversation(
         id, user_id, role, last_read_message_id, joined_at,
         user:users(*)
       )
-    `
+    `,
     )
     .eq("id", conversationId)
     .single();
@@ -230,7 +248,7 @@ export async function getConversation(
 
 export async function updateGroupConversation(
   conversationId: string,
-  updates: { name?: string; avatar_url?: string | null }
+  updates: { name?: string; avatar_url?: string | null },
 ) {
   const supabase = await createClient();
   const {
@@ -248,10 +266,7 @@ export async function updateGroupConversation(
   return { success: true };
 }
 
-export async function addGroupMember(
-  conversationId: string,
-  userId: string
-) {
+export async function addGroupMember(conversationId: string, userId: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("participants").insert({
     conversation_id: conversationId,
@@ -265,7 +280,7 @@ export async function addGroupMember(
 
 export async function removeGroupMember(
   conversationId: string,
-  userId: string
+  userId: string,
 ) {
   const supabase = await createClient();
   const { error } = await supabase

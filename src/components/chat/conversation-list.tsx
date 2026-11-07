@@ -1,339 +1,248 @@
 "use client";
-
-import { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useConversations } from "@/hooks/use-conversations";
-import { ConversationItem } from "./conversation-item";
+import { useRef, useState } from "react";
+import Link from "next/link";
 import {
-  MessageCircle,
-  Search,
-  MessageSquareCode,
-  Users2,
-  Plus,
-  X,
+  ArrowUpRight,
   Loader2,
-  UsersRound,
+  MessageCircle,
+  Plus,
+  Search,
+  Users,
+  X,
 } from "lucide-react";
-import type { Conversation, User } from "@/types";
+import { useConversations } from "@/hooks/use-conversations";
 import { useAuth } from "@/hooks/use-auth";
-import { UserAvatar } from "@/components/shared/user-avatar";
+import { useUIStore } from "@/stores/ui-store";
 import { createDM } from "@/actions/conversations";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { useUIStore } from "@/stores/ui-store";
-
-interface ConversationListProps {
-  initialRooms?: Conversation[];
-  friends?: User[];
-}
-
-type TabType = "all" | "unread" | "groups";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { ConversationItem } from "./conversation-item";
+import type { Conversation, User } from "@/types";
+import { cn } from "@/lib/utils";
 
 export function ConversationList({
   initialRooms = [],
   friends = [],
-}: ConversationListProps) {
+}: {
+  initialRooms?: Conversation[];
+  friends?: User[];
+}) {
   const { user } = useAuth();
-  const router = useRouter();
-  const { conversations } = useConversations();
+  const { conversations, isLoading, error: loadError } = useConversations();
   const { openModal } = useUIStore();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<TabType>("all");
-  const [showNewChat, setShowNewChat] = useState(false);
-  const [startingDmFor, setStartingDmFor] = useState<string | null>(null);
-
-  const displayConversations =
-    conversations.length > 0 ? conversations : initialRooms;
-
-  const filteredConversations = useMemo(() => {
-    return displayConversations.filter((convo) => {
-      const otherParticipant = convo.participants?.find(
-        (p) => p.user_id !== user?.id
-      );
-      const displayName =
-        convo.type === "group"
-          ? convo.name || "Group Chat"
-          : otherParticipant?.user?.display_name || "HUDdang User";
-      const username =
-        convo.type === "dm" ? otherParticipant?.user?.username || "" : "";
-
-      const matchesSearch =
-        displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        username.toLowerCase().includes(searchQuery.toLowerCase());
-
-      if (!matchesSearch) return false;
-      if (activeTab === "unread") return (convo.unread_count || 0) > 0;
-      if (activeTab === "groups") return convo.type === "group";
-      return true;
-    });
-  }, [displayConversations, searchQuery, activeTab, user]);
-
-  // Filter friends by search query when in new-chat mode
-  const filteredFriends = useMemo(() => {
-    if (!searchQuery) return friends;
-    return friends.filter(
-      (f) =>
-        f.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        f.username.toLowerCase().includes(searchQuery.toLowerCase())
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+  const [tab, setTab] = useState<"all" | "unread" | "groups">("all");
+  const [newChat, setNewChat] = useState(false);
+  const [pending, setPending] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const search = useRef<HTMLInputElement>(null);
+  const rooms =
+    isLoading && !conversations.length ? initialRooms : conversations;
+  const term = query.trim().toLowerCase();
+  const filtered = rooms.filter((room) => {
+    const other = room.participants?.find((p) => p.user_id !== user?.id)?.user;
+    return (
+      `${room.name || ""} ${other?.display_name || ""} ${other?.username || ""}`
+        .toLowerCase()
+        .includes(term) &&
+      (tab !== "groups" || room.type === "group") &&
+      (tab !== "unread" || (room.unread_count || 0) > 0)
     );
-  }, [friends, searchQuery]);
-
-  const groupCount = useMemo(
-    () => displayConversations.filter((c) => c.type === "group").length,
-    [displayConversations]
+  });
+  const filteredFriends = friends.filter((friend) =>
+    `${friend.display_name} ${friend.username}`.toLowerCase().includes(term),
   );
-
-  const unreadCount = useMemo(
-    () =>
-      displayConversations.filter((c) => (c.unread_count || 0) > 0).length,
-    [displayConversations]
-  );
-
-  const handleStartDM = async (friendId: string) => {
-    setStartingDmFor(friendId);
+  const startChat = async (id: string) => {
+    if (pending) return;
+    setPending(id);
+    setError(null);
     try {
-      const res = await createDM(friendId);
-      if (res?.conversation) {
-        toast.success("Opening chat...");
-        router.push(`/chat/${res.conversation.id}`);
-      } else if (res?.error) {
-        toast.error(res.error);
-      }
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to start chat");
-      console.error("Error starting DM:", err);
+      const result = await createDM(id);
+      if (result.error) setError(result.error);
+      else if (result.conversation)
+        router.push(`/chat/${result.conversation.id}`);
+    } catch {
+      setError("Could not open the conversation. Try again.");
     } finally {
-      setStartingDmFor(null);
-      setShowNewChat(false);
+      setPending(null);
     }
   };
-
-  const isEmpty = displayConversations.length === 0;
-
   return (
-    <div className="flex flex-col h-full space-y-4 overflow-hidden">
-      {/* Header row with search + new chat button */}
-      <div className="space-y-3 shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-text-muted">
-              <Search className="h-4 w-4" />
-            </div>
-            <input
-              type="text"
-              placeholder={
-                showNewChat ? "Search friends..." : "Search conversations..."
-              }
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-2xl border border-border bg-surface/50 py-3 pl-11 pr-4 text-sm text-text-primary placeholder-text-muted outline-none transition-all duration-300 focus:border-accent focus:bg-surface focus:shadow-glow"
-            />
-          </div>
-          {/* New Chat Toggle */}
-          <button
-            onClick={() => {
-              setShowNewChat((v) => !v);
-              setSearchQuery("");
-            }}
-            title={showNewChat ? "Back to conversations" : "New chat"}
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition-all duration-200 cursor-pointer active:scale-95 ${
-              showNewChat
-                ? "border-accent bg-accent text-white"
-                : "border-border bg-surface/50 text-text-muted hover:border-accent hover:text-accent"
-            }`}
-          >
-            {showNewChat ? (
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <div className="flex gap-2 px-2">
+        <div className="relative min-w-0 flex-1">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-text-secondary"
+          />
+          <input
+            ref={search}
+            aria-label={newChat ? "Search friends" : "Search conversations"}
+            placeholder={
+              newChat ? "Find someone in your circle" : "Search your messages"
+            }
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="h-11 w-full rounded-xl border border-border bg-background pl-10 pr-10 text-sm outline-none focus:border-accent"
+          />
+          {query && (
+            <button
+              type="button"
+              aria-label="Clear conversation search"
+              onClick={() => {
+                setQuery("");
+                search.current?.focus();
+              }}
+              className="absolute right-0 top-0 flex h-11 w-10 items-center justify-center text-text-secondary hover:text-text-primary"
+            >
               <X className="h-4 w-4" />
-            ) : (
-              <Plus className="h-4 w-4" />
-            )}
-          </button>
+            </button>
+          )}
         </div>
-
-        {/* Tab Pills — only show when not in new-chat mode */}
-        {!showNewChat && (
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            {(["all", "unread", "groups"] as const).map((tab) => {
-              const isActive = activeTab === tab;
-              let badge = null;
-              if (tab === "unread" && unreadCount > 0) badge = unreadCount;
-              else if (tab === "groups" && groupCount > 0) badge = groupCount;
-
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`relative flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold tracking-wide uppercase transition-all duration-200 active:scale-95 cursor-pointer ${
-                    isActive
-                      ? "bg-accent/15 text-accent shadow-sm"
-                      : "text-text-secondary hover:bg-surface hover:text-text-primary"
-                  }`}
+        <button
+          type="button"
+          aria-label={newChat ? "Back to inbox" : "New conversation"}
+          aria-pressed={newChat}
+          onClick={() => {
+            setNewChat(!newChat);
+            setQuery("");
+            setError(null);
+          }}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent text-on-primary transition-transform hover:brightness-110 active:scale-95"
+        >
+          {newChat ? <X className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+        </button>
+      </div>
+      {!newChat && (
+        <div
+          className="flex gap-1 border-b border-border px-2 pb-3"
+          aria-label="Filter conversations"
+        >
+          {(["all", "unread", "groups"] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={tab === value}
+              onClick={() => setTab(value)}
+              className={cn(
+                "min-h-10 flex-1 rounded-lg px-3 text-xs font-semibold capitalize transition-colors",
+                tab === value
+                  ? "bg-accent/15 text-accent"
+                  : "text-text-secondary hover:bg-surface-container",
+              )}
+            >
+              {value}
+              {value === "unread" &&
+                rooms.some((r) => (r.unread_count || 0) > 0) && (
+                  <span className="ml-1.5">
+                    {rooms.filter((r) => (r.unread_count || 0) > 0).length}
+                  </span>
+                )}
+            </button>
+          ))}
+        </div>
+      )}
+      {(error || loadError) && (
+        <p role="alert" className="px-3 text-xs text-error">
+          {error || loadError}
+        </p>
+      )}
+      <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+        {newChat ? (
+          <>
+            <button
+              type="button"
+              onClick={() => openModal("create-group")}
+              className="mb-3 flex min-h-12 w-full items-center gap-3 rounded-xl border border-border p-3 text-left text-sm font-semibold transition-colors hover:bg-surface-container"
+            >
+              <Users className="h-5 w-5 text-accent" />
+              Make a group chat
+              <ArrowUpRight className="ml-auto h-4 w-4 text-text-secondary" />
+            </button>
+            <p className="px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-text-secondary">
+              Your people
+            </p>
+            {filteredFriends.map((friend) => (
+              <button
+                key={friend.id}
+                type="button"
+                disabled={pending !== null}
+                onClick={() => void startChat(friend.id)}
+                className="flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors hover:bg-surface-container disabled:opacity-50"
+              >
+                <UserAvatar
+                  src={friend.avatar_url}
+                  name={friend.display_name}
+                  size="sm"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold">
+                    {friend.display_name}
+                  </span>
+                  <span className="block truncate text-xs text-text-secondary">
+                    @{friend.username}
+                  </span>
+                </span>
+                {pending === friend.id && (
+                  <Loader2 className="h-4 w-4 animate-spin text-accent" />
+                )}
+              </button>
+            ))}
+            {!filteredFriends.length && (
+              <div className="px-4 py-10 text-center">
+                <p className="text-sm font-semibold">
+                  {query
+                    ? "No matching friends"
+                    : "Every good chat starts somewhere."}
+                </p>
+                <p className="mt-2 text-xs leading-5 text-text-secondary">
+                  {query
+                    ? "Try another name or username."
+                    : "Find your people, then start the conversation."}
+                </p>
+                <Link
+                  href="/friends"
+                  className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-accent"
                 >
-                  {tab === "all" && "All"}
-                  {tab === "unread" && "Unread"}
-                  {tab === "groups" && "Groups"}
-                  {badge !== null && (
-                    <span
-                      className={`flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold ${
-                        isActive
-                          ? "bg-accent text-white"
-                          : "bg-surface-hover text-text-secondary"
-                      }`}
-                    >
-                      {badge}
-                    </span>
-                  )}
-                  {isActive && (
-                    <motion.div
-                      layoutId="chat-active-tab-indicator"
-                      className="absolute inset-0 -z-10 rounded-xl border border-accent/30"
-                      transition={{ type: "spring", stiffness: 350, damping: 25 }}
-                    />
-                  )}
-                </button>
-              );
-            })}
+                  Find your circle
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
+              </div>
+            )}
+          </>
+        ) : filtered.length ? (
+          filtered.map((room) => (
+            <ConversationItem key={room.id} conversation={room} />
+          ))
+        ) : (
+          <div className="px-5 py-12 text-center">
+            <MessageCircle className="mx-auto mb-4 h-8 w-8 text-accent" />
+            <h2 className="font-display text-lg font-semibold">
+              {query
+                ? "No chats found"
+                : tab === "unread"
+                  ? "All caught up."
+                  : tab === "groups"
+                    ? "Your next group starts here."
+                    : "A little quiet in here."}
+            </h2>
+            <p className="mt-2 text-xs leading-5 text-text-secondary">
+              {query
+                ? "Try a different name or clear your search."
+                : "One hello can turn into a whole conversation."}
+            </p>
+            {!query && (
+              <button
+                type="button"
+                onClick={() => setNewChat(true)}
+                className="mt-5 min-h-11 rounded-xl border border-border px-4 text-xs font-semibold text-accent hover:bg-accent/10"
+              >
+                Start a conversation
+              </button>
+            )}
           </div>
         )}
-      </div>
-
-      {/* Content area */}
-      <div className="flex-1 overflow-y-auto pr-1 space-y-2 scrollbar-thin">
-        <AnimatePresence mode="popLayout" initial={false}>
-          {/* NEW CHAT: Action options + Friends list */}
-          {showNewChat ? (
-            <>
-              {/* Action row: New Group */}
-              <motion.div
-                key="new-chat-actions"
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className="flex gap-2 mb-1"
-              >
-                <button
-                  onClick={() => {
-                    setShowNewChat(false);
-                    openModal("create-group");
-                  }}
-                  className="flex flex-1 items-center gap-2 rounded-xl border border-border/50 bg-surface/40 px-3 py-2.5 text-xs font-semibold text-text-secondary hover:border-accent/40 hover:bg-surface/70 hover:text-accent transition-all duration-200 cursor-pointer"
-                >
-                  <UsersRound className="h-4 w-4 shrink-0" />
-                  New Group Chat
-                </button>
-              </motion.div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted px-1 mb-1">Direct Messages</p>
-
-              {filteredFriends.length > 0 ? (
-                filteredFriends.map((friend, idx) => (
-                  <motion.button
-                    key={friend.id}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.18, delay: idx * 0.04 }}
-                    onClick={() => handleStartDM(friend.id)}
-                    disabled={startingDmFor === friend.id}
-                    className="w-full flex items-center gap-3 rounded-2xl border border-border/40 bg-surface/30 p-3.5 text-left transition-all duration-200 hover:border-accent/30 hover:bg-surface/60 hover:shadow-lg active:scale-[0.98] cursor-pointer disabled:opacity-60"
-                  >
-                    <UserAvatar
-                      src={friend.avatar_url}
-                      name={friend.display_name}
-                      size="sm"
-                      isOnline={true}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-text-primary truncate">
-                        {friend.display_name}
-                      </p>
-                      <p className="text-xs text-text-muted truncate">
-                        @{friend.username}
-                      </p>
-                    </div>
-                    {startingDmFor === friend.id ? (
-                      <Loader2 className="h-4 w-4 text-accent animate-spin shrink-0" />
-                    ) : (
-                      <MessageCircle className="h-4 w-4 text-text-muted group-hover:text-accent shrink-0" />
-                    )}
-                  </motion.button>
-                ))
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex flex-col items-center justify-center py-12 text-center"
-                >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-surface mb-4 border border-border/50">
-                    <Users2 className="h-6 w-6 text-text-secondary" />
-                  </div>
-                  <h3 className="text-sm font-semibold text-text-primary">
-                    {searchQuery ? "No friends found" : "No friends yet"}
-                  </h3>
-                  <p className="mt-1 max-w-xs text-xs text-text-muted leading-relaxed">
-                    {searchQuery
-                      ? "Try a different name."
-                      : "Add friends on the Friends page to start chatting!"}
-                  </p>
-                </motion.div>
-              )}
-            </>
-          ) : // CONVERSATIONS LIST
-          filteredConversations.length > 0 ? (
-            filteredConversations.map((convo) => (
-              <motion.div
-                key={convo.id}
-                initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95, y: -4 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
-              >
-                <ConversationItem conversation={convo} />
-              </motion.div>
-            ))
-          ) : (
-            // EMPTY STATE — prompt user to start a chat
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col items-center justify-center py-12 text-center"
-            >
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface mb-4 border border-border/50">
-                {activeTab === "groups" ? (
-                  <Users2 className="h-7 w-7 text-text-secondary" />
-                ) : activeTab === "unread" ? (
-                  <MessageSquareCode className="h-7 w-7 text-text-secondary" />
-                ) : (
-                  <MessageCircle className="h-7 w-7 text-text-secondary" />
-                )}
-              </div>
-              <h3 className="text-sm font-semibold text-text-primary">
-                {activeTab === "groups"
-                  ? "No group chats yet"
-                  : activeTab === "unread"
-                  ? "No unread messages"
-                  : "No conversations yet"}
-              </h3>
-              <p className="mt-1 max-w-xs text-xs text-text-muted leading-relaxed">
-                {searchQuery
-                  ? "Try checking your spelling."
-                  : activeTab === "groups"
-                  ? "Create a group with the + button!"
-                  : "Tap the + button to start a new chat with a friend."}
-              </p>
-              {!searchQuery && activeTab === "all" && friends.length > 0 && (
-                <button
-                  onClick={() => setShowNewChat(true)}
-                  className="mt-4 flex items-center gap-2 rounded-xl bg-accent/10 px-4 py-2 text-xs font-semibold text-accent hover:bg-accent/20 transition-colors cursor-pointer"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Start a conversation
-                </button>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </div>
   );

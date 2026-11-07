@@ -9,7 +9,8 @@ import { ArrowLeft } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Edit Profile",
-  description: "Edit your HUDdang profile — update your avatar, username, display name, and bio.",
+  description:
+    "Edit your Bakaiti profile — update your avatar, username, display name, and bio.",
 };
 
 export default async function EditProfilePage() {
@@ -44,7 +45,7 @@ export default async function EditProfilePage() {
               Edit Profile
             </h1>
             <p className="text-sm text-text-muted">
-              Customize your HUDdang identity
+              Customize your Bakaiti identity
             </p>
           </div>
         </div>
@@ -58,7 +59,10 @@ export default async function EditProfilePage() {
 
           {/* Right panel: Preview (sticks on desktop, on top in mobile) */}
           <div className="order-1 lg:order-2 lg:sticky lg:top-6 lg:self-start">
-            <ProfilePreviewCard userId={profile.id} avatarBaseUrl={profile.avatar_url} />
+            <ProfilePreviewCard
+              userId={profile.id}
+              avatarBaseUrl={profile.avatar_url}
+            />
           </div>
         </div>
       </div>

@@ -34,10 +34,8 @@ export function CallModal() {
   const handleAccept = () => {
     if (ringtone) ringtone.pause();
     joinCall(
-      incomingCall.roomName,
       incomingCall.conversationId,
-      incomingCall.callType,
-      incomingCall.token
+      incomingCall.callType
     );
   };
 

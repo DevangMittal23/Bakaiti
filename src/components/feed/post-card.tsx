@@ -1,21 +1,15 @@
 "use client";
-
-import { useState, useCallback, useTransition, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState } from "react";
+import Link from "next/link";
 import {
-  Heart,
-  MessageCircle,
   Bookmark,
-  Share2,
-  MoreHorizontal,
-  Trash2,
-  Check,
-  Send,
+  Heart,
   Loader2,
-  MessageSquare,
-  X,
+  MessageCircle,
+  MoreHorizontal,
+  Share2,
+  Trash2,
 } from "lucide-react";
-import { formatRelativeTime, cn } from "@/lib/utils";
 import {
   likePost,
   unlikePost,
@@ -23,632 +17,392 @@ import {
   unbookmarkPost,
   deletePost,
 } from "@/actions/posts";
-import { createComment, getPostComments } from "@/actions/comments";
+import { getPostComments } from "@/actions/comments";
 import { useAuth } from "@/hooks/use-auth";
-import type { Post, Comment } from "@/types";
-import Link from "next/link";
 import { UserAvatar } from "@/components/shared/user-avatar";
-import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { PostComments } from "./post-comments";
+import { mediaUrl } from "@/lib/media";
+import { formatRelativeTime, cn } from "@/lib/utils";
+import type { Post, Comment } from "@/types";
 
-interface PostCardProps {
+export function PostCard({
+  post,
+  onDelete,
+  onUpdate,
+}: {
   post: Post;
   onDelete?: () => void;
   onUpdate?: (updates: Partial<Post>) => void;
-}
-
-export function PostCard({ post, onDelete, onUpdate }: PostCardProps) {
+}) {
   const { user } = useAuth();
-  const [showMenu, setShowMenu] = useState(false);
-  const [isLikeAnimating, setIsLikeAnimating] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [isPending, startTransition] = useTransition();
-
-  // Comments state
+  const [liked, setLiked] = useState(Boolean(post.is_liked));
+  const [saved, setSaved] = useState(Boolean(post.is_bookmarked));
+  const [likes, setLikes] = useState(post.likes_count);
+  const [commentCount, setCommentCount] = useState(post.comments_count);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [deleted, setDeleted] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
-  const [loadingComments, setLoadingComments] = useState(false);
-  const [commentText, setCommentText] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [replyingTo, setReplyingTo] = useState<{ id: string; username: string } | null>(null);
-  const commentInputRef = useRef<HTMLInputElement>(null);
-
-  const isOwner = user?.id === post.author_id;
-  const author = post.author;
-  const rootComments = comments.filter((c) => c.parent_comment_id === null);
-
-  const handleLike = useCallback(() => {
-    if (!user) {
-      toast.error("Please sign in to like posts");
-      return;
-    }
-    const newLiked = !post.is_liked;
-    const currentLikesCount = post.likes_count;
-    
-    // Optimistic update
-    if (onUpdate) {
-      onUpdate({
-        is_liked: newLiked,
-        likes_count: newLiked ? currentLikesCount + 1 : Math.max(0, currentLikesCount - 1),
-      });
-    }
-
-    setIsLikeAnimating(true);
-    setTimeout(() => setIsLikeAnimating(false), 400);
-
-    startTransition(async () => {
-      if (newLiked) {
-        await likePost(post.id);
-      } else {
-        await unlikePost(post.id);
-      }
-    });
-  }, [post.id, post.is_liked, post.likes_count, onUpdate, user]);
-
-  const handleSave = useCallback(() => {
-    if (!user) {
-      toast.error("Please sign in to bookmark posts");
-      return;
-    }
-    const newSaved = !post.is_bookmarked;
-    
-    // Optimistic update
-    if (onUpdate) {
-      onUpdate({ is_bookmarked: newSaved });
-    }
-
-    startTransition(async () => {
-      if (newSaved) {
-        await bookmarkPost(post.id);
-        toast.success("Post bookmarked!");
-      } else {
-        await unbookmarkPost(post.id);
-        toast.success("Bookmark removed");
-      }
-    });
-  }, [post.id, post.is_bookmarked, onUpdate, user]);
-
-  const handleDelete = useCallback(() => {
-    startTransition(async () => {
-      const res = await deletePost(post.id);
-      if (res.error) {
-        toast.error(res.error);
-      } else {
-        toast.success("Post deleted successfully");
-        if (onDelete) onDelete();
-      }
-    });
-    setShowMenu(false);
-  }, [post.id, onDelete]);
-
-  const handleShare = useCallback(async () => {
-    const shareUrl = `${window.location.origin}/post/${post.id}`;
-    const shareData = {
-      title: `HUDdang Post by @${author?.username || "user"}`,
-      text: post.content || "Check out this post on HUDdang!",
-      url: shareUrl,
-    };
-
-    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
-      try {
-        await navigator.share(shareData);
-        return;
-      } catch (err) {
-        if ((err as Error).name === "AbortError") return;
-        console.error("Web Share failed:", err);
-      }
-    }
-
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [shared, setShared] = useState(false);
+  const [image, setImage] = useState<string | null>(null);
+  const toggle = async (action: "like" | "save") => {
+    if (pending) return;
+    setPending(true);
+    setError(null);
     try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      toast.success("Link copied to clipboard!");
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Clipboard copy failed", err);
-    }
-  }, [post.id, post.content, author?.username]);
-
-  const toggleComments = useCallback(async () => {
-    const nextShow = !showComments;
-    setShowComments(nextShow);
-
-    if (!nextShow) {
-      setReplyingTo(null);
-    }
-
-    if (nextShow && comments.length === 0) {
-      setLoadingComments(true);
-      try {
-        const list = await getPostComments(post.id);
-        setComments(list);
-      } catch (err) {
-        console.error("Failed to load comments:", err);
-      } finally {
-        setLoadingComments(false);
+      if (!user) throw new Error("Please sign in to join the conversation.");
+      const result =
+        action === "like"
+          ? await (liked ? unlikePost(post.id) : likePost(post.id))
+          : await (saved ? unbookmarkPost(post.id) : bookmarkPost(post.id));
+      if (result.error) throw new Error(result.error);
+      if (action === "like") {
+        const next = Math.max(0, likes + (liked ? -1 : 1));
+        setLiked(!liked);
+        setLikes(next);
+        onUpdate?.({ is_liked: !liked, likes_count: next });
+      } else {
+        setSaved(!saved);
+        onUpdate?.({ is_bookmarked: !saved });
       }
-    }
-  }, [showComments, comments.length, post.id]);
-
-  const handleCommentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!commentText.trim() || isSubmitting) return;
-
-    setIsSubmitting(true);
-    try {
-      const parentId = replyingTo ? replyingTo.id : null;
-      const res = await createComment(post.id, commentText.trim(), parentId);
-      if (res && res.comment) {
-        if (parentId) {
-          // Append as reply to the correct parent comment
-          setComments((prev) =>
-            prev.map((c) =>
-              c.id === parentId
-                ? { ...c, replies: [...(c.replies || []), res.comment as Comment] }
-                : c
-            )
-          );
-        } else {
-          setComments((prev) => [...prev, res.comment as Comment]);
-        }
-        setCommentText("");
-        setReplyingTo(null);
-        if (onUpdate) {
-          onUpdate({ comments_count: post.comments_count + 1 });
-        }
-        toast.success("Comment posted!");
-      }
-    } catch (err) {
-      console.error("Failed to post comment:", err);
+    } catch (failure) {
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : "Your change could not be saved. Try again.",
+      );
     } finally {
-      setIsSubmitting(false);
+      setPending(false);
     }
   };
-
-  const handleDoubleTap = useCallback(() => {
-    if (!post.is_liked) {
-      handleLike();
+  const remove = async () => {
+    setPending(true);
+    setError(null);
+    try {
+      const result = await deletePost(post.id);
+      if (result.error) throw new Error(result.error);
+      setDeleted(true);
+      onDelete?.();
+      setConfirmDelete(false);
+    } catch {
+      setError("Your post could not be deleted. Try again.");
+    } finally {
+      setPending(false);
     }
-  }, [post.is_liked, handleLike]);
-
+  };
+  const openComments = async () => {
+    setShowComments(!showComments);
+    if (showComments || comments.length) return;
+    setCommentsLoading(true);
+    setError(null);
+    try {
+      setComments(await getPostComments(post.id));
+    } catch {
+      setError("Comments could not load. Close and reopen them to retry.");
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
+  const share = async () => {
+    setError(null);
+    try {
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/post/${post.id}`,
+      );
+      setShared(true);
+      setTimeout(() => setShared(false), 2500);
+    } catch {
+      setError(
+        "Could not copy the link. Open the post and copy its address instead.",
+      );
+    }
+  };
+  if (deleted) return null;
   return (
-    <div className="glass-card group/card flex flex-col overflow-hidden border border-white/[0.06]">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-4">
+    <article
+      id={`post-${post.id}`}
+      className="overflow-hidden rounded-2xl border border-border bg-surface"
+    >
+      <div className="flex items-center gap-3 p-4 sm:px-5">
         <Link
-          href={`/profile/${author?.username || "user"}`}
-          className="flex items-center gap-3 group"
+          href={`/profile/${post.author?.username || ""}`}
+          aria-label={`View ${post.author?.display_name || "author"}'s profile`}
         >
           <UserAvatar
-            src={author?.avatar_url}
-            name={author?.display_name || "User"}
+            src={post.author?.avatar_url}
+            name={post.author?.display_name || "Bakaiti user"}
             size="sm"
-            isOnline={true}
           />
-          <div>
-            <p className="text-sm font-semibold text-text-primary group-hover:text-accent transition-colors">
-              {author?.display_name || "HUDdang User"}
-            </p>
-            <p className="text-xs text-text-muted">
-              @{author?.username || "user"} · {formatRelativeTime(post.created_at)}
-            </p>
-          </div>
         </Link>
-
-        {isOwner && (
-          <div className="relative">
-            <button
-              onClick={() => setShowMenu(!showMenu)}
-              className="rounded-lg p-1.5 text-text-muted transition-all hover:bg-surface-hover hover:text-text-secondary cursor-pointer opacity-0 group-hover/card:opacity-100 duration-200"
-              aria-label="Post options"
-            >
-              <MoreHorizontal className="h-5 w-5" />
-            </button>
-            <AnimatePresence>
-              {showMenu && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: -4 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -4 }}
-                  className="absolute right-0 top-full z-10 mt-1 w-40 overflow-hidden rounded-xl border border-border bg-surface-hover shadow-xl"
-                >
-                  <button
-                    onClick={handleDelete}
-                    className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-error hover:bg-error-muted transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete post
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
-      </div>
-
-      {/* Content */}
-      {post.content && (
-        <div className="px-5 pt-3" onDoubleClick={handleDoubleTap}>
-          <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-text-primary">
-            {post.content.split(/(#\w+|@\w+)/g).map((part, i) => {
-              if (part.startsWith("#")) {
-                return (
-                  <Link
-                    key={i}
-                    href={`/search?q=${part.slice(1)}&type=hashtag`}
-                    className="text-accent hover:underline"
-                  >
-                    {part}
-                  </Link>
-                );
-              }
-              if (part.startsWith("@")) {
-                return (
-                  <Link
-                    key={i}
-                    href={`/profile/${part.slice(1)}`}
-                    className="text-accent hover:underline"
-                  >
-                    {part}
-                  </Link>
-                );
-              }
-              return part;
-            })}
+        <div className="min-w-0 flex-1">
+          <Link
+            href={`/profile/${post.author?.username || ""}`}
+            className="block truncate text-sm font-semibold hover:text-accent"
+          >
+            {post.author?.display_name || "Bakaiti user"}
+          </Link>
+          <p className="mt-0.5 text-[11px] text-text-secondary">
+            @{post.author?.username || "user"} ·{" "}
+            <Link href={`/post/${post.id}`} className="hover:text-accent">
+              <time dateTime={post.created_at}>
+                {formatRelativeTime(post.created_at)}
+              </time>
+            </Link>{" "}
+            ·{" "}
+            {post.visibility === "public"
+              ? "Public"
+              : post.visibility === "friends"
+                ? "Friends"
+                : "Only you"}
           </p>
         </div>
-      )}
-
-      {/* Media */}
-      {post.media_urls && post.media_urls.length > 0 && (
-        <div className="mt-3 px-5">
-          {post.media_urls.length === 1 ? (
-            <div 
-              className="relative w-full overflow-hidden rounded-xl bg-surface border border-white/[0.06]"
-              style={{ aspectRatio: "16/9", maxHeight: "480px" }}
-            >
-              {post.media_types?.[0] === "video" ? (
-                <video
-                  src={post.media_urls[0]}
-                  controls
-                  className="w-full h-full object-cover"
-                  preload="metadata"
-                />
-              ) : (
-                <img
-                  src={post.media_urls[0]}
-                  alt="Post media"
-                  className="w-full h-full object-cover cursor-pointer transition-transform duration-300 hover:scale-[1.01]"
-                  loading="lazy"
-                  onClick={() => window.open(post.media_urls[0], "_blank")}
-                />
-              )}
-            </div>
-          ) : (
-            <div className={cn(
-              "grid gap-1 rounded-xl overflow-hidden h-[360px] bg-surface border border-white/[0.06]",
-              post.media_urls.length === 2 ? "grid-cols-2" : "grid-cols-2"
-            )}>
-              {post.media_urls.slice(0, 4).map((url, index) => {
-                const mediaType = post.media_types?.[index] || "image";
-                const isThirdAndFirst = post.media_urls.length === 3 && index === 0;
-                return (
-                  <div key={url} className={cn("relative overflow-hidden bg-black/10 w-full h-full", isThirdAndFirst && "row-span-2")}>
-                    {mediaType === "video" ? (
-                      <video
-                        src={url}
-                        controls
-                        className="w-full h-full object-cover"
-                        preload="metadata"
-                      />
-                    ) : (
-                      <img
-                        src={url}
-                        alt="Post media item"
-                        className="w-full h-full object-cover cursor-pointer"
-                        loading="lazy"
-                        onClick={() => window.open(url, "_blank")}
-                      />
-                    )}
-                    {index === 3 && post.media_urls.length > 4 && (
-                      <div 
-                        onClick={() => window.open(url, "_blank")}
-                        className="absolute inset-0 bg-black/60 flex items-center justify-center cursor-pointer"
-                      >
-                        <span className="text-white text-2xl font-bold">+{post.media_urls.length - 4}</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Link Preview (OpenGraph) */}
-      {post.link_preview && (
-        <div className="mt-3 px-5">
-          <a
-            href={post.link_url || "#"}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-col sm:flex-row overflow-hidden rounded-xl border border-border bg-surface/30 hover:bg-surface/50 transition-colors"
-          >
-            {post.link_preview.image && (
-              <img
-                src={post.link_preview.image}
-                alt={post.link_preview.title || "Preview"}
-                className="h-40 sm:h-auto sm:w-40 object-cover shrink-0"
-              />
-            )}
-            <div className="p-4 flex flex-col justify-center min-w-0">
-              <span className="text-[10px] uppercase font-bold text-accent tracking-wider">
-                {post.link_preview.domain}
-              </span>
-              <h4 className="text-sm font-semibold mt-1 text-text-primary truncate">
-                {post.link_preview.title}
-              </h4>
-              <p className="text-xs text-text-muted mt-1 line-clamp-2 leading-relaxed">
-                {post.link_preview.description}
-              </p>
-            </div>
-          </a>
-        </div>
-      )}
-
-      {/* Interactions */}
-      <div className="flex items-center gap-6 px-5 py-3 border-b border-border/20">
-        <motion.button
-          whileTap={{ scale: 0.8 }}
-          onClick={handleLike}
-          disabled={isPending}
-          className="flex items-center gap-1.5 text-text-muted hover:text-rose-500 transition-colors cursor-pointer"
-          aria-label={post.is_liked ? "Unlike post" : "Like post"}
-        >
-          <motion.div
-            animate={post.is_liked ? { scale: [1, 1.4, 1] } : { scale: 1 }}
-            transition={{ type: "keyframes", duration: 0.3, ease: "easeInOut" }}
-          >
-            <Heart
-              className={cn(
-                "h-[18px] w-[18px]",
-                post.is_liked ? "text-rose-500 fill-rose-500" : "text-text-muted"
-              )}
-            />
-          </motion.div>
-          <AnimatePresence mode="wait">
-            {post.likes_count > 0 && (
-              <motion.span
-                key={post.likes_count}
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 4 }}
-                className="text-xs font-medium tabular-nums"
+        {user?.id === post.author_id && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Post actions"
+                className="flex h-11 w-10 shrink-0 items-center justify-center rounded-xl text-text-secondary hover:bg-surface-container"
               >
-                {post.likes_count}
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </motion.button>
-
-        <button
-          onClick={toggleComments}
-          className={cn(
-            "flex items-center gap-1.5 text-text-muted hover:text-info transition-colors cursor-pointer",
-            showComments && "text-accent font-medium"
+                <MoreHorizontal className="h-5 w-5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onSelect={() => setConfirmDelete(true)}
+                className="text-error"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete post
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+      {post.content && (
+        <p className="whitespace-pre-wrap break-words px-4 pb-4 text-sm leading-7 [overflow-wrap:anywhere] sm:px-5">
+          {post.content.split(/(#[\p{L}\p{N}_]+)/u).map((part, index) =>
+            part.startsWith("#") ? (
+              <Link
+                key={index}
+                href={`/search?q=${encodeURIComponent(part)}&type=posts`}
+                className="text-accent hover:underline"
+              >
+                {part}
+              </Link>
+            ) : (
+              part
+            ),
           )}
-          aria-label="Comment on post"
+        </p>
+      )}
+      {post.media_urls?.length > 0 && (
+        <div
+          className={cn(
+            "grid gap-1",
+            post.media_urls.length > 1 && "grid-cols-2",
+          )}
         >
-          <MessageCircle className="h-[18px] w-[18px]" />
-          {post.comments_count > 0 && (
-            <span className="text-xs font-medium">{post.comments_count}</span>
+          {post.media_urls.map((url, index) =>
+            post.media_types?.[index] === "video" ? (
+              <video
+                key={url}
+                src={mediaUrl(url)}
+                controls
+                preload="metadata"
+                className="max-h-[440px] w-full bg-background object-contain"
+              />
+            ) : (
+              <button
+                key={url}
+                type="button"
+                aria-label={`Enlarge post image ${index + 1}`}
+                onClick={() => setImage(url)}
+                className="overflow-hidden bg-background"
+              >
+                <img
+                  src={mediaUrl(url)}
+                  alt={`Photo shared by ${post.author?.display_name || "a community member"}`}
+                  className="max-h-[480px] w-full object-cover transition-transform duration-300 hover:scale-[1.02]"
+                  loading="lazy"
+                />
+              </button>
+            ),
+          )}
+        </div>
+      )}
+      {post.link_url && (
+        <a
+          href={post.link_url}
+          target="_blank"
+          rel="noreferrer"
+          className="mx-4 mb-4 block overflow-hidden rounded-xl border border-border bg-background p-4 sm:mx-5"
+        >
+          <p className="text-xs font-semibold text-accent">
+            {post.link_preview?.title || "Open shared link"}
+          </p>
+          {post.link_preview?.description && (
+            <p className="mt-1 line-clamp-2 text-xs leading-5 text-text-secondary">
+              {post.link_preview.description}
+            </p>
+          )}
+          <p className="mt-2 truncate text-[10px] text-text-secondary">
+            {post.link_preview?.domain || post.link_url}
+          </p>
+        </a>
+      )}
+      <div className="flex items-center gap-1 border-t border-border px-3 py-2">
+        <button
+          type="button"
+          aria-label={liked ? "Unlike post" : "Like post"}
+          aria-pressed={liked}
+          disabled={pending}
+          onClick={() => void toggle("like")}
+          className={cn(
+            "flex min-h-11 items-center gap-2 rounded-xl px-3 text-xs transition-colors hover:bg-accent/10 disabled:opacity-50",
+            liked ? "text-accent" : "text-text-secondary",
+          )}
+        >
+          <Heart className={cn("h-4 w-4", liked && "fill-current")} />
+          {likes}
+        </button>
+        <button
+          type="button"
+          aria-label="Comments"
+          aria-expanded={showComments}
+          onClick={() => void openComments()}
+          className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-xs text-text-secondary hover:bg-accent/10 hover:text-accent"
+        >
+          <MessageCircle className="h-4 w-4" />
+          {commentCount}
+        </button>
+        <button
+          type="button"
+          aria-label="Copy post link"
+          onClick={() => void share()}
+          className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-text-secondary hover:bg-accent/10 hover:text-accent"
+        >
+          <Share2 className="h-4 w-4" />
+          {shared && (
+            <span role="status" className="text-[10px]">
+              Copied
+            </span>
           )}
         </button>
-
+        <span className="flex-1" />
         <button
-          onClick={handleSave}
-          disabled={isPending}
-          className="flex items-center gap-1.5 text-text-muted hover:text-amber-500 transition-colors cursor-pointer"
-          aria-label={post.is_bookmarked ? "Unsave post" : "Save post"}
-        >
-          <Bookmark
-            className={cn(
-              "h-[18px] w-[18px] transition-all duration-200",
-              post.is_bookmarked ? "text-amber-500 fill-amber-500" : "text-text-muted"
-            )}
-          />
-        </button>
-
-        <button
-          onClick={handleShare}
+          type="button"
+          aria-label={saved ? "Remove bookmark" : "Bookmark post"}
+          aria-pressed={saved}
+          disabled={pending}
+          onClick={() => void toggle("save")}
           className={cn(
-            "ml-auto flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors cursor-pointer",
-            copied
-              ? "text-success bg-success/10 font-semibold"
-              : "text-text-muted hover:text-accent"
+            "flex h-11 w-11 items-center justify-center rounded-xl hover:bg-accent/10 disabled:opacity-50",
+            saved ? "text-accent" : "text-text-secondary",
           )}
-          aria-label="Share post"
         >
-          {copied ? (
-            <>
-              <Check className="h-[18px] w-[18px] text-success" />
-              <span className="text-[10.5px] font-semibold text-success animate-fade-in">
-                Copied!
-              </span>
-            </>
-          ) : (
-            <Share2 className="h-[18px] w-[18px]" />
-          )}
+          <Bookmark className={cn("h-4 w-4", saved && "fill-current")} />
         </button>
       </div>
-
-      {/* Comments Drawer Expansion */}
-      <AnimatePresence initial={false}>
-        {showComments && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className="overflow-hidden bg-surface/15"
-          >
-            <div className="px-5 py-4 space-y-4">
-              {/* Comment submission form */}
-              <form onSubmit={handleCommentSubmit} className="space-y-2">
-                {replyingTo && (
-                  <div className="flex items-center justify-between bg-accent/15 border border-accent/35 rounded-xl px-3 py-1.5 text-xs text-accent">
-                    <span className="flex items-center gap-1.5">
-                      <span className="font-medium animate-pulse">Replying to</span>
-                      <span className="font-semibold">@{replyingTo.username}</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setReplyingTo(null)}
-                      className="text-text-muted hover:text-accent transition-colors"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                )}
-                <div className="flex gap-3">
-                  <UserAvatar
-                    src={user?.avatar_url}
-                    name={user?.display_name || "User"}
-                    size="xs"
-                    isOnline={true}
-                  />
-                  <div className="relative flex-1">
-                    <input
-                      ref={commentInputRef}
-                      type="text"
-                      placeholder={
-                        replyingTo
-                          ? `Reply to @${replyingTo.username}...`
-                          : "Write a comment..."
-                      }
-                      value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
-                      className="w-full rounded-xl border border-border/50 bg-surface/50 py-2.5 pl-4 pr-10 text-xs text-text-primary placeholder:text-text-muted outline-none transition-all duration-200 focus:border-accent/60 focus:bg-surface focus:shadow-glow"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!commentText.trim() || isSubmitting}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-accent disabled:text-text-muted transition-colors cursor-pointer"
-                    >
-                      {isSubmitting ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Send className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </form>
-
-              {/* Comments list */}
-              <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1">
-                {loadingComments ? (
-                  <div className="flex justify-center py-6">
-                    <Loader2 className="h-5 w-5 animate-spin text-accent" />
-                  </div>
-                ) : rootComments.length > 0 ? (
-                  rootComments.map((c) => (
-                    <div key={c.id} className="space-y-3 border-b border-border/10 pb-3 last:border-0 last:pb-0">
-                      {/* Root Comment Row */}
-                      <div className="flex gap-3">
-                        <UserAvatar
-                          src={c.author?.avatar_url}
-                          name={c.author?.display_name || "User"}
-                          size="xs"
-                        />
-                        <div className="flex-1">
-                          <div className="rounded-2xl bg-surface/40 px-3.5 py-2.5 border border-border/20">
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-baseline gap-1.5 min-w-0">
-                                <span className="text-xs font-semibold text-text-primary truncate">
-                                  {c.author?.display_name}
-                                </span>
-                                <span className="text-[10px] text-text-muted truncate hidden sm:inline">
-                                  @{c.author?.username}
-                                </span>
-                              </div>
-                              <span className="text-[9px] text-text-muted shrink-0">
-                                {formatRelativeTime(c.created_at)}
-                              </span>
-                            </div>
-                            <p className="mt-1 text-xs text-text-secondary leading-relaxed whitespace-pre-wrap">
-                              {c.content}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-3 mt-1 px-1.5">
-                            <button
-                              onClick={() => {
-                                setReplyingTo({
-                                  id: c.id,
-                                  username: c.author?.username || "user",
-                                });
-                                commentInputRef.current?.focus();
-                              }}
-                              className="text-[10px] font-bold text-text-muted hover:text-accent transition-colors cursor-pointer"
-                            >
-                              Reply
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Replies */}
-                      {c.replies && c.replies.length > 0 && (
-                        <div className="pl-6 space-y-3 border-l border-border/10 ml-4">
-                          {c.replies.map((reply) => (
-                            <div key={reply.id} className="flex gap-2.5">
-                              <UserAvatar
-                                src={reply.author?.avatar_url}
-                                name={reply.author?.display_name || "User"}
-                                size="xs"
-                              />
-                              <div className="flex-1">
-                                <div className="rounded-2xl bg-surface/20 px-3 py-2 border border-border/15">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-baseline gap-1.5 min-w-0">
-                                      <span className="text-[11px] font-semibold text-text-primary truncate">
-                                        {reply.author?.display_name}
-                                      </span>
-                                      <span className="text-[9px] text-text-muted truncate hidden sm:inline">
-                                        @{reply.author?.username}
-                                      </span>
-                                    </div>
-                                    <span className="text-[8px] text-text-muted shrink-0">
-                                      {formatRelativeTime(reply.created_at)}
-                                    </span>
-                                  </div>
-                                  <p className="mt-0.5 text-xs text-text-secondary leading-relaxed whitespace-pre-wrap">
-                                    {reply.content}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <div className="py-6 text-center">
-                    <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-surface border border-border/40 text-text-muted">
-                      <MessageSquare className="h-4.5 w-4.5" />
-                    </div>
-                    <p className="text-xs text-text-muted">
-                      No comments yet. Say something!
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+      {error && (
+        <p role="alert" className="px-5 pb-4 text-xs leading-5 text-error">
+          {error}
+        </p>
+      )}
+      {showComments && (
+        <div className="border-t border-border">
+          <PostComments
+            postId={post.id}
+            comments={comments}
+            isLoading={commentsLoading}
+            onCommentAdded={(comment) => {
+              setComments((current) =>
+                comment.parent_comment_id
+                  ? current.map((c) =>
+                      c.id === comment.parent_comment_id
+                        ? { ...c, replies: [...(c.replies || []), comment] }
+                        : c,
+                    )
+                  : [...current, comment],
+              );
+              setCommentCount((current) => current + 1);
+              onUpdate?.({ comments_count: commentCount + 1 });
+            }}
+          />
+        </div>
+      )}
+      <Dialog
+        open={confirmDelete}
+        onOpenChange={(open) => {
+          if (!pending) setConfirmDelete(open);
+        }}
+      >
+        <DialogContent>
+          <DialogTitle>Delete this post?</DialogTitle>
+          <DialogDescription>
+            Your post and its comments will be removed. This cannot be undone.
+          </DialogDescription>
+          {error && (
+            <p role="alert" className="text-sm text-error">
+              {error}
+            </p>
+          )}
+          <div className="mt-4 flex justify-end gap-2">
+            <Button
+              autoFocus
+              variant="outline"
+              disabled={pending}
+              onClick={() => setConfirmDelete(false)}
+            >
+              Keep post
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={pending}
+              onClick={() => void remove()}
+            >
+              {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete post
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={image !== null}
+        onOpenChange={(open) => {
+          if (!open) setImage(null);
+        }}
+      >
+        <DialogContent>
+          <DialogTitle>Post image</DialogTitle>
+          <DialogDescription>
+            Photo shared by {post.author?.display_name || "a community member"}.
+          </DialogDescription>
+          {image && (
+            <img
+              src={mediaUrl(image)}
+              alt="Enlarged post image"
+              className="max-h-[70dvh] w-full object-contain"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </article>
   );
 }

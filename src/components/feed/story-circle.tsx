@@ -1,12 +1,14 @@
 "use client";
-
 import { useState } from "react";
-import { UserAvatar } from "@/components/shared/user-avatar";
 import { StoryViewer } from "./story-viewer";
-import type { Story } from "@/types";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { cn } from "@/lib/utils";
-
-interface StoryCircleProps {
+import type { Story } from "@/types";
+export function StoryCircle({
+  author,
+  stories,
+  onStoriesUpdated,
+}: {
   author: {
     id: string;
     username: string;
@@ -15,54 +17,39 @@ interface StoryCircleProps {
   };
   stories: Story[];
   onStoriesUpdated: () => void;
-}
-
-export function StoryCircle({
-  author,
-  stories,
-  onStoriesUpdated,
-}: StoryCircleProps) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  // Check if there are any unread stories
-  const hasUnread = stories.some((s) => !s.is_viewed);
-
-  const handleClick = () => {
-    setIsOpen(true);
-  };
-
+}) {
+  const [open, setOpen] = useState(false);
+  const unread = stories.some((story) => !story.is_viewed);
   return (
     <>
-      <div className="flex flex-col items-center gap-1.5 shrink-0">
-        <button
-          onClick={handleClick}
-          className="relative rounded-full p-[2.5px] focus:outline-none cursor-pointer"
-          style={{
-            background: hasUnread
-              ? "linear-gradient(to top right, var(--color-accent), hsl(340 82% 52%))"
-              : "hsl(240 4% 16%)",
-          }}
+      <button
+        type="button"
+        aria-label={`View ${author.display_name}'s stories${unread ? ", new stories" : ""}`}
+        onClick={() => setOpen(true)}
+        className="group flex w-16 shrink-0 flex-col items-center gap-2"
+      >
+        <span
+          className={cn(
+            "flex h-16 w-16 items-center justify-center rounded-full border-2 transition-transform group-hover:scale-105",
+            unread ? "border-secondary" : "border-border",
+          )}
         >
-          <div className="rounded-full bg-background-secondary p-[2px]">
-            <UserAvatar
-              src={author.avatar_url}
-              name={author.display_name}
-              size="md"
-              className="ring-0"
-            />
-          </div>
-        </button>
-        <span className="text-[10px] font-semibold text-text-secondary max-w-[64px] truncate">
+          <UserAvatar
+            src={author.avatar_url}
+            name={author.display_name}
+            size="md"
+          />
+        </span>
+        <span className="w-full truncate text-center text-[10px] font-semibold text-text-secondary">
           {author.display_name.split(" ")[0]}
         </span>
-      </div>
-
-      {isOpen && (
+      </button>
+      {open && (
         <StoryViewer
           author={author}
           stories={stories}
           onClose={() => {
-            setIsOpen(false);
+            setOpen(false);
             onStoriesUpdated();
           }}
         />

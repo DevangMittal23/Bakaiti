@@ -5,7 +5,7 @@ import type { Post } from "@/types";
 
 export const metadata: Metadata = {
   title: "Feed",
-  description: "See what your community is sharing on HUDdang.",
+  description: "See what your community is sharing on Bakaiti.",
 };
 
 export default async function FeedPage() {
@@ -13,11 +13,7 @@ export default async function FeedPage() {
 
   return (
     <div>
-
-      <FeedList
-        initialPosts={posts as Post[]}
-        initialHasMore={hasMore}
-      />
+      <FeedList initialPosts={posts as Post[]} initialHasMore={hasMore} />
     </div>
   );
 }

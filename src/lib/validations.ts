@@ -4,31 +4,26 @@ import { z } from "zod";
 // AUTH VALIDATIONS
 // ============================================================
 
+export const emailSchema = z.string().trim().email("Please enter a valid email address").max(254);
+export const usernameSchema = z.string().trim().min(3, "Username must be at least 3 characters")
+  .max(30, "Username must be at most 30 characters")
+  .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores");
+
 export const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  username: usernameSchema,
+  password: z.string().min(1, "Password is required").max(1024),
 });
 
 export type LoginFormData = z.infer<typeof loginSchema>;
 
-export const registerSchema = z
-  .object({
-    username: z
-      .string()
-      .min(3, "Username must be at least 3 characters")
-      .max(30, "Username must be at most 30 characters")
-      .regex(
-        /^[a-zA-Z0-9_]+$/,
-        "Username can only contain letters, numbers, and underscores"
-      ),
-    display_name: z
-      .string()
-      .min(1, "Display name is required")
-      .max(50, "Display name must be at most 50 characters"),
-    email: z.string().email("Please enter a valid email address"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
-    confirm_password: z.string(),
-  })
+export const signupSchema = z.object({
+  username: usernameSchema,
+  display_name: z.string().trim().min(1, "Display name is required").max(50, "Display name must be at most 50 characters"),
+  email: emailSchema,
+  password: z.string().min(8, "Password must be at least 8 characters").max(128, "Password is too long"),
+});
+
+export const registerSchema = signupSchema.extend({ confirm_password: z.string() })
   .refine((data) => data.password === data.confirm_password, {
     message: "Passwords don't match",
     path: ["confirm_password"],
@@ -36,8 +31,14 @@ export const registerSchema = z
 
 export type RegisterFormData = z.infer<typeof registerSchema>;
 
+export const signupCodeSchema = z.object({
+  email: emailSchema,
+  token: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code from your email"),
+});
+export const resendSignupSchema = z.object({ email: emailSchema });
+
 export const forgotPasswordSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
+  email: emailSchema,
 });
 
 export type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;

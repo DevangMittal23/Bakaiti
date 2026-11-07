@@ -1,213 +1,102 @@
-"use client";
-
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Shield, Eye, MessageSquare, KeyRound, Check } from "lucide-react";
 import Link from "next/link";
-
-interface PrivacySetting {
-  id: string;
-  title: string;
-  description: string;
-  value: boolean;
-}
-
+import {
+  ArrowLeft,
+  Shield,
+  Lock,
+  Eye,
+  MessageCircle,
+  ArrowUpRight,
+} from "lucide-react";
+export const metadata = {
+  title: "Privacy & security",
+  description: "Understand your privacy and account controls on Bakaiti.",
+};
 export default function PrivacyPage() {
-  const [settings, setSettings] = useState<PrivacySetting[]>([]);
-  const [savedStatus, setSavedStatus] = useState<string | null>("All changes saved");
-
-  // Load from localStorage on mount
-  useEffect(() => {
-    const defaultSettings: PrivacySetting[] = [
-      {
-        id: "privateProfile",
-        title: "Private Profile",
-        description: "Only approved friends can view your posts, media, and digital core",
-        value: false,
-      },
-      {
-        id: "showOnlineStatus",
-        title: "Show Active Status",
-        description: "Allow your friends to see when you are active or last online",
-        value: true,
-      },
-      {
-        id: "readReceipts",
-        title: "Read Receipts",
-        description: "Let others know when you have read their direct messages",
-        value: true,
-      },
-      {
-        id: "restrictDMs",
-        title: "Restrict Direct Messages",
-        description: "Only accept new conversation requests from friends and followers",
-        value: false,
-      },
-    ];
-
-    try {
-      const stored = localStorage.getItem("huddang_privacy_settings");
-      if (stored) {
-        setSettings(JSON.parse(stored));
-      } else {
-        setSettings(defaultSettings);
-        localStorage.setItem("huddang_privacy_settings", JSON.stringify(defaultSettings));
-      }
-    } catch (e) {
-      setSettings(defaultSettings);
-    }
-  }, []);
-
-  const handleToggle = (id: string) => {
-    setSavedStatus("Saving...");
-    const updated = settings.map((s) => {
-      if (s.id === id) {
-        return { ...s, value: !s.value };
-      }
-      return s;
-    });
-    setSettings(updated);
-
-    try {
-      localStorage.setItem("huddang_privacy_settings", JSON.stringify(updated));
-      setTimeout(() => {
-        setSavedStatus("All changes saved");
-      }, 600);
-    } catch (e) {
-      setSavedStatus("Failed to save");
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link
-          href="/settings"
-          className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-surface hover:text-text-secondary"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-text-primary">Privacy & Security</h1>
-          <p className="text-sm text-text-secondary">
-            Control your privacy settings and secure your data
+    <div className="mx-auto max-w-2xl space-y-6">
+      <Link
+        href="/settings"
+        className="inline-flex min-h-11 items-center gap-2 text-xs text-text-secondary hover:text-accent"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to settings
+      </Link>
+      <header>
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-secondary">
+          Your space, your say
+        </p>
+        <h1 className="font-display text-3xl font-semibold tracking-tight">
+          Privacy & security<span className="text-accent">.</span>
+        </h1>
+      </header>
+      <section className="rounded-2xl border border-border bg-surface p-5">
+        <div className="flex gap-3">
+          <Shield className="mt-1 h-6 w-6 shrink-0 text-accent" />
+          <div>
+            <h2 className="text-sm font-semibold">Choose who sees each post</h2>
+            <p className="mt-2 text-xs leading-6 text-text-secondary">
+              When sharing a post, choose Everyone, Friends, or Only me. That
+              choice controls who can read the post.
+            </p>
+            <Link
+              href="/feed"
+              className="mt-3 inline-flex min-h-11 items-center gap-2 text-xs font-semibold text-accent"
+            >
+              Go to the feed
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        </div>
+      </section>
+      <section className="overflow-hidden rounded-2xl border border-border bg-surface">
+        <div className="border-b border-border px-5 py-4">
+          <h2 className="text-sm font-semibold">More control is on the way</h2>
+          <p className="mt-2 text-xs leading-5 text-text-secondary">
+            These preferences are not available yet. We won’t show a saved
+            switch until your choice actually takes effect.
           </p>
         </div>
-      </div>
-
-      {/* Auto-save badge */}
-      <AnimatePresence mode="wait">
-        {savedStatus && (
-          <motion.div
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="flex items-center gap-1.5 text-[11px] font-semibold text-success uppercase tracking-wider pl-1"
+        {[
+          {
+            icon: Eye,
+            title: "Online visibility",
+            text: "Choose who can see when you’re around.",
+          },
+          {
+            icon: MessageCircle,
+            title: "Direct-message permissions",
+            text: "Choose who can start a conversation with you.",
+          },
+          {
+            icon: Lock,
+            title: "Read receipts & private profiles",
+            text: "Control read indicators and profile access.",
+          },
+        ].map((item) => (
+          <div
+            key={item.title}
+            className="flex gap-3 border-b border-border px-5 py-4 last:border-b-0"
           >
-            <Check className="h-3.5 w-3.5" />
-            <span>{savedStatus}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="space-y-4">
-        {/* Profile Visibility card */}
-        <div className="glass-card p-5 space-y-6">
-          <div className="flex items-center gap-2 mb-2">
-            <Eye className="h-4.5 w-4.5 text-accent" />
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-text-primary">
-              Visibility & Interactions
-            </h2>
-          </div>
-
-          <div className="space-y-6 divide-y divide-border/40">
-            {settings.slice(0, 3).map((item, idx) => (
-              <div
-                key={item.id}
-                className={`flex items-start justify-between gap-4 ${idx > 0 ? "pt-5" : ""}`}
-              >
-                <div className="space-y-1">
-                  <h3 className="text-sm font-semibold text-text-primary">{item.title}</h3>
-                  <p className="text-xs leading-relaxed text-text-muted">{item.description}</p>
-                </div>
-                {/* iOS Premium Switch */}
-                <button
-                  onClick={() => handleToggle(item.id)}
-                  className={`relative h-6 w-11 shrink-0 rounded-full transition-all duration-300 ${
-                    item.value ? "bg-accent" : "bg-surface-hover border border-border"
-                  }`}
-                  role="switch"
-                  aria-checked={item.value}
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-300 ${
-                      item.value ? "translate-x-5" : "translate-x-0"
-                    }`}
-                  />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Messaging & DMs card */}
-        <div className="glass-card p-5 space-y-6">
-          <div className="flex items-center gap-2 mb-2">
-            <MessageSquare className="h-4.5 w-4.5 text-accent" />
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-text-primary">
-              Conversations
-            </h2>
-          </div>
-
-          {settings.slice(3).map((item) => (
-            <div key={item.id} className="flex items-start justify-between gap-4">
-              <div className="space-y-1">
-                <h3 className="text-sm font-semibold text-text-primary">{item.title}</h3>
-                <p className="text-xs leading-relaxed text-text-muted">{item.description}</p>
-              </div>
-              <button
-                onClick={() => handleToggle(item.id)}
-                className={`relative h-6 w-11 shrink-0 rounded-full transition-all duration-300 ${
-                  item.value ? "bg-accent" : "bg-surface-hover border border-border"
-                }`}
-                role="switch"
-                aria-checked={item.value}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-300 ${
-                    item.value ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
-              </button>
-            </div>
-          ))}
-        </div>
-
-        {/* Security & Access (Coming soon but styled premium) */}
-        <div className="glass-card p-5 space-y-5 opacity-70">
-          <div className="flex items-center gap-2">
-            <KeyRound className="h-4.5 w-4.5 text-text-secondary" />
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
-              Login & Authentication
-            </h2>
-          </div>
-
-          <div className="flex items-center justify-between gap-4">
-            <div className="space-y-1">
-              <h3 className="text-sm font-semibold text-text-secondary">
-                Two-Factor Authentication (2FA)
-              </h3>
-              <p className="text-xs leading-relaxed text-text-muted">
-                Add an extra layer of protection to secure your account credentials
+            <item.icon className="mt-1 h-4 w-4 shrink-0 text-text-secondary" />
+            <div className="min-w-0 flex-1">
+              <h3 className="text-xs font-semibold">{item.title}</h3>
+              <p className="mt-1 text-xs leading-5 text-text-secondary">
+                {item.text}
               </p>
             </div>
-            <span className="rounded-full bg-surface border border-border/55 px-2.5 py-1 text-[10px] font-bold text-text-muted uppercase tracking-wider">
+            <span className="self-start rounded-md bg-background px-2 py-1 text-[10px] text-text-secondary">
               Coming soon
             </span>
           </div>
-        </div>
-      </div>
+        ))}
+      </section>
+      <Link
+        href="/forgot-password"
+        className="flex min-h-14 items-center justify-between rounded-xl border border-border px-5 text-sm font-semibold hover:border-accent/40"
+      >
+        Request a password reset
+        <ArrowUpRight className="h-4 w-4 text-accent" />
+      </Link>
     </div>
   );
 }

@@ -8,7 +8,7 @@ export async function getMessages(
   conversationId: string,
   cursor?: string,
   limit: number = MESSAGES_PER_PAGE
-): Promise<{ messages: Message[]; hasMore: boolean }> {
+): Promise<{ messages: Message[]; hasMore: boolean; error?: string }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -38,7 +38,7 @@ export async function getMessages(
 
   const { data: messages, error } = await query;
 
-  if (error || !messages) return { messages: [], hasMore: false };
+  if (error || !messages) return { messages: [], hasMore: false, error: "Could not load messages" };
 
   // Fetch reply_to messages if any
   const replyIds = messages
@@ -190,10 +190,11 @@ export async function reactToMessage(messageId: string, emoji: string) {
 
   if (existing) {
     // Remove reaction
-    await supabase
+    const { error } = await supabase
       .from("message_reactions")
       .delete()
       .eq("id", existing.id);
+    if (error) return { error: error.message };
     return { action: "removed" };
   }
 

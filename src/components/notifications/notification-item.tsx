@@ -1,267 +1,182 @@
 "use client";
-
-import { useTransition } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { markAsRead as markAsReadAction } from "@/actions/notifications";
-import { acceptFriendRequest, rejectFriendRequest } from "@/actions/friendships";
-import { useNotificationStore } from "@/stores/notification-store";
-import { formatRelativeTime } from "@/lib/utils";
 import {
   Heart,
   MessageCircle,
   UserPlus,
-  UserCheck,
-  MessageSquare,
-  PhoneMissed,
-  CornerDownRight,
-  AtSign,
+  Check,
+  ArrowUpRight,
+  Loader2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import type { Notification } from "@/types";
+import { markAsRead as markRead } from "@/actions/notifications";
+import { respondToFriendRequest } from "@/actions/friendships";
+import { useNotificationStore } from "@/stores/notification-store";
 import { UserAvatar } from "@/components/shared/user-avatar";
-import { toast } from "sonner";
-
-interface NotificationItemProps {
-  notification: Notification;
-}
-
-const notificationIconConfig: Record<
-  string,
-  {
-    icon: any;
-    color: string;
-    bg: string;
-    getText: (actorName: string) => string;
-  }
-> = {
-  post_like: {
-    icon: Heart,
-    color: "text-red-400",
-    bg: "bg-red-400/10",
-    getText: (name) => `${name} liked your post`,
-  },
-  post_comment: {
-    icon: MessageCircle,
-    color: "text-blue-400",
-    bg: "bg-blue-400/10",
-    getText: (name) => `${name} commented on your post`,
-  },
-  comment_reply: {
-    icon: CornerDownRight,
-    color: "text-blue-400",
-    bg: "bg-blue-400/10",
-    getText: (name) => `${name} replied to your comment`,
-  },
-  friend_request: {
-    icon: UserPlus,
-    color: "text-purple-400",
-    bg: "bg-purple-400/10",
-    getText: (name) => `${name} sent you a friend request`,
-  },
-  friend_accept: {
-    icon: UserCheck,
-    color: "text-green-400",
-    bg: "bg-green-400/10",
-    getText: (name) => `${name} accepted your friend request`,
-  },
-  message: {
-    icon: MessageSquare,
-    color: "text-purple-400",
-    bg: "bg-purple-400/10",
-    getText: (name) => `${name} sent you a message`,
-  },
-  call_missed: {
-    icon: PhoneMissed,
-    color: "text-red-400",
-    bg: "bg-red-400/10",
-    getText: (name) => `${name} called you`,
-  },
-  mention: {
-    icon: AtSign,
-    color: "text-amber-400",
-    bg: "bg-amber-500/10",
-    getText: (name) => `${name} mentioned you`,
-  },
-};
-
-const getNotificationSubtext = (notification: Notification): string => {
-  switch (notification.type) {
-    case 'post_like':
-      return 'Tap to see the post';
-    case 'post_comment': {
-      const commentMatch = notification.body?.match(/commented: "(.+)"/);
-      return commentMatch ? `"${commentMatch[1]}"` : 'Tap to see the comment';
-    }
-    case 'comment_reply':
-      return 'Replied to your comment';
-    case 'friend_request':
-      return 'Wants to connect with you';
-    case 'friend_accept':
-      return 'You are now connected';
-    case 'message':
-      return 'Sent you a message';
-    case 'call_missed':
-      return 'You missed a call';
-    default:
-      return formatRelativeTime(notification.created_at);
-  }
-};
-
-function getNotificationLink(notification: Notification): string {
-  if (notification.type === "friend_request" || notification.type === "friend_accept") {
+import { formatRelativeTime, cn } from "@/lib/utils";
+import type { Notification } from "@/types";
+function destination(notification: Notification) {
+  if (notification.entity_type === "post" && notification.entity_id)
+    return `/post/${notification.entity_id}`;
+  if (notification.entity_type === "conversation" && notification.entity_id)
+    return `/chat/${notification.entity_id}`;
+  if (
+    notification.type === "friend_request" ||
+    notification.type === "friend_accept"
+  )
     return "/friends";
-  }
-  if (notification.type === "post_like" || notification.type === "post_comment") {
-    return "/feed";
-  }
-  if (notification.type === "message") {
-    return "/chat";
-  }
+  if (notification.actor?.username)
+    return `/profile/${notification.actor.username}`;
   return "/notifications";
 }
-
-export function NotificationItem({ notification }: NotificationItemProps) {
-  const { markAsRead } = useNotificationStore();
-  const [isActionPending, startActionTransition] = useTransition();
-  const [, startTransition] = useTransition();
-
-  const config = notificationIconConfig[notification.type] || notificationIconConfig.post_like;
-  const actorName = notification.actor?.display_name || "Someone";
-  const Icon = config.icon;
-  const link = getNotificationLink(notification);
-
-  const handleClick = () => {
-    if (!notification.is_read) {
-      startTransition(async () => {
-        await markAsReadAction(notification.id);
-        markAsRead(notification.id);
-      });
+export function NotificationItem({
+  notification,
+}: {
+  notification: Notification;
+}) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [handled, setHandled] = useState<string | null>(null);
+  const name = notification.actor?.display_name || "Someone";
+  const Icon =
+    notification.type === "friend_request"
+      ? UserPlus
+      : notification.type.includes("like")
+        ? Heart
+        : MessageCircle;
+  const read = async () => {
+    if (notification.is_read) return;
+    try {
+      const result = await markRead(notification.id);
+      if (result.error) throw new Error(result.error);
+      useNotificationStore.getState().markAsRead(notification.id);
+    } catch {
+      setError("Could not mark this update as read. Try again.");
     }
   };
-
-  const handleAccept = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const entityId = notification.entity_id;
-    if (!entityId) return;
-    startActionTransition(async () => {
-      try {
-        const res = await acceptFriendRequest(entityId);
-        if (res?.error) {
-          toast.error(res.error);
-        } else {
-          toast.success("Friend request accepted!");
-          await markAsReadAction(notification.id);
-          markAsRead(notification.id);
-        }
-      } catch (err) {
-        toast.error("Failed to accept request");
-      }
-    });
+  const respond = async (accept: boolean) => {
+    if (pending) return;
+    setPending(true);
+    setError(null);
+    try {
+      if (!notification.actor_id)
+        throw new Error("This request is no longer available.");
+      const result = await respondToFriendRequest(
+        notification.actor_id,
+        accept,
+      );
+      if (result.error) throw new Error(result.error);
+      setHandled(accept ? "Added to your circle" : "Request declined");
+      await read();
+    } catch (failure) {
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : "Could not respond to this request. Try again.",
+      );
+    } finally {
+      setPending(false);
+    }
   };
-
-  const handleReject = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const entityId = notification.entity_id;
-    if (!entityId) return;
-    startActionTransition(async () => {
-      try {
-        const res = await rejectFriendRequest(entityId);
-        if (res?.error) {
-          toast.error(res.error);
-        } else {
-          toast.success("Friend request declined.");
-          await markAsReadAction(notification.id);
-          markAsRead(notification.id);
-        }
-      } catch (err) {
-        toast.error("Failed to reject request");
-      }
-    });
-  };
-
   return (
-    <Link
-      href={link}
-      onClick={handleClick}
+    <article
       className={cn(
-        "glass-card group flex items-start gap-3 p-4 transition-all duration-200 hover:bg-surface-hover",
+        "rounded-2xl border p-4 transition-colors sm:p-5",
         notification.is_read
-          ? "bg-transparent border-transparent"
-          : "bg-white/[0.04] border-l-2 border-l-purple-500"
+          ? "border-border bg-surface"
+          : "border-accent/25 bg-accent/5",
       )}
     >
-      {/* Icon */}
-      <div
-        className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-          config.bg
-        )}
-      >
-        <Icon className={cn("h-5 w-5", config.color)} />
-      </div>
-
-      {/* Content */}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start gap-2">
-          {notification.actor && (
-            <div className="shrink-0">
-              <UserAvatar
-                src={notification.actor.avatar_url}
-                name={notification.actor.display_name}
-                size="xs"
-              />
-            </div>
-          )}
-
-          <div className="min-w-0 flex-1">
-            <p
-              className={cn(
-                "text-sm leading-snug",
-                notification.is_read
-                  ? "text-text-secondary"
-                  : "text-text-primary font-medium"
-              )}
-            >
-              {config.getText(actorName)}
-            </p>
-            
-            <p className="mt-0.5 truncate text-xs text-text-muted">
-              {getNotificationSubtext(notification)}
-            </p>
-
-            <p className="mt-1 text-xs text-text-muted">
-              {formatRelativeTime(notification.created_at)}
-            </p>
-
-            {/* Friend Request Actions Inline */}
-            {notification.type === "friend_request" && !notification.is_read && (
-              <div className="flex gap-2 mt-2">
+      <div className="flex items-start gap-3">
+        <div className="relative shrink-0">
+          <UserAvatar
+            src={notification.actor?.avatar_url}
+            name={name}
+            size="md"
+          />
+          <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-surface bg-accent text-on-primary">
+            <Icon className="h-2.5 w-2.5" />
+          </span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <Link
+            href={destination(notification)}
+            onClick={() => void read()}
+            className="block text-sm leading-6 hover:text-accent"
+          >
+            <span className="font-semibold">{name}</span>{" "}
+            {notification.body ||
+              (notification.type === "friend_request"
+                ? "wants to join your circle."
+                : notification.type === "friend_accept"
+                  ? "accepted your friend request."
+                  : "shared an update with you.")}
+          </Link>
+          <time
+            dateTime={notification.created_at}
+            className="mt-1 block text-[10px] text-text-secondary"
+          >
+            {formatRelativeTime(notification.created_at)}
+          </time>
+          {notification.type === "friend_request" &&
+            !notification.is_read &&
+            !handled && (
+              <div className="mt-3 flex flex-wrap gap-2">
                 <button
-                  onClick={handleAccept}
-                  disabled={isActionPending}
-                  className="px-3 py-1 text-xs bg-purple-500 text-white rounded-full hover:bg-purple-600 transition-colors cursor-pointer disabled:opacity-50"
+                  type="button"
+                  disabled={pending}
+                  onClick={() => void respond(true)}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-accent px-4 text-xs font-bold text-on-primary disabled:opacity-50"
                 >
+                  {pending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <UserPlus className="h-3.5 w-3.5" />
+                  )}
                   Accept
                 </button>
                 <button
-                  onClick={handleReject}
-                  disabled={isActionPending}
-                  className="px-3 py-1 text-xs bg-white/[0.06] text-text-secondary rounded-full hover:bg-white/[0.1] transition-colors cursor-pointer disabled:opacity-50"
+                  type="button"
+                  disabled={pending}
+                  onClick={() => void respond(false)}
+                  className="min-h-11 rounded-xl border border-border px-4 text-xs text-text-secondary disabled:opacity-50"
                 >
                   Decline
                 </button>
               </div>
             )}
-          </div>
+          {handled && (
+            <p role="status" className="mt-2 text-xs text-secondary">
+              {handled}
+            </p>
+          )}
+          {error && (
+            <p role="alert" className="mt-2 text-xs text-error">
+              {error}
+            </p>
+          )}
+        </div>
+        <div className="flex shrink-0 flex-col items-center">
+          {!notification.is_read && (
+            <button
+              type="button"
+              aria-label="Mark notification as read"
+              onClick={() => void read()}
+              className="flex h-11 w-9 items-center justify-center rounded-xl text-accent hover:bg-accent/10"
+            >
+              <Check className="h-4 w-4" />
+            </button>
+          )}
+          <Link
+            href={destination(notification)}
+            aria-label="Open notification"
+            onClick={() => void read()}
+            className="flex h-11 w-9 items-center justify-center rounded-xl text-text-secondary hover:text-accent"
+          >
+            <ArrowUpRight className="h-4 w-4" />
+          </Link>
         </div>
       </div>
-
-      {/* Unread indicator */}
-      {!notification.is_read && (
-        <div className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-accent animate-pulse" />
-      )}
-    </Link>
+    </article>
   );
 }

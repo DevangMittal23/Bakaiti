@@ -1,5 +1,5 @@
 -- ============================================================
--- HUDdang — Migration 0003: Row Level Security Policies
+-- Bakaiti — Migration 0003: Row Level Security Policies
 -- ============================================================
 
 -- Enable RLS on all tables

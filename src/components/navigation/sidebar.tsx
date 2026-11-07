@@ -1,217 +1,166 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import {
-  Home,
-  Search,
-  Bell,
   MessageCircle,
+  PanelsTopLeft,
+  Compass,
   Users,
+  Bell,
   Settings,
   LogOut,
-  PlusSquare,
-  Sparkles,
+  ArrowUpRight,
+  Radio,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useNotifications } from "@/hooks/use-notifications";
-import { useConversations } from "@/hooks/use-conversations";
-import { signOut } from "@/actions/auth";
-import { getPendingRequests } from "@/actions/friendships";
-import { cn, getInitials } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useChatStore } from "@/stores/chat-store";
+import { useNotificationStore } from "@/stores/notification-store";
+import { toast } from "sonner";
 import { UserAvatar } from "@/components/shared/user-avatar";
-import { PulsePicker } from "@/components/shared/pulse-picker";
-import { usePulse } from "@/hooks/use-pulse";
+import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/feed", icon: Home, label: "Home", badgeKey: "feed" as const },
-  { href: "/search", icon: Search, label: "Search", badgeKey: null },
-  { href: "/discover", icon: Sparkles, label: "Explore", badgeKey: null },
-  { href: "/friends", icon: Users, label: "Circle", badgeKey: "friends" as const },
-  { href: "/chat", icon: MessageCircle, label: "Messages", badgeKey: "chat" as const },
-  { href: "/notifications", icon: Bell, label: "Activity", badgeKey: "notifications" as const },
+  { href: "/chat", icon: MessageCircle, label: "Messages" },
+  { href: "/feed", icon: PanelsTopLeft, label: "The feed" },
+  { href: "/discover", icon: Compass, label: "Discover" },
+  { href: "/friends", icon: Users, label: "Your circle" },
+  { href: "/notifications", icon: Bell, label: "Activity" },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { user } = useAuth();
-  
-  // Real-time unread counts automatically synced via hooks
-  const { unreadCount: notifUnread } = useNotifications();
-  const { totalUnread: chatUnread } = useConversations();
-  const [friendsUnread, setFriendsUnread] = useState(0);
-  const [pulsePickerOpen, setPulsePickerOpen] = useState(false);
-  const { pulseType: myPulseType, updatePulse, removePulse } = usePulse(user?.id || "");
-
-  // Fetch pending friend requests
-  useEffect(() => {
-    async function fetchFriendsCount() {
-      try {
-        const pending = await getPendingRequests();
-        setFriendsUnread(pending?.length || 0);
-      } catch (err) {
-        console.error(err);
-      }
+  const { user, signOut } = useAuth();
+  const router = useRouter();
+  const [signingOut, setSigningOut] = useState(false);
+  const handleSignOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await signOut();
+      router.replace("/login");
+      router.refresh();
+    } catch {
+      toast.error("Could not sign out. Please try again.");
+    } finally {
+      setSigningOut(false);
     }
-    if (user?.id) {
-      fetchFriendsCount();
-    }
-  }, [user?.id]);
-
-  const [shouldShake, setShouldShake] = useState(false);
-
-  useEffect(() => {
-    if (notifUnread > 0) {
-      setShouldShake(true);
-      const t = setTimeout(() => setShouldShake(false), 600);
-      return () => clearTimeout(t);
-    }
-  }, [notifUnread]);
-
-  const bellVariants = {
-    shake: {
-      rotate: [0, -15, 12, -10, 8, -4, 0],
-      transition: {
-        duration: 0.5,
-        ease: "easeInOut" as const
-      }
-    },
-    default: { rotate: 0 }
   };
-
-  const getBadgeCount = (key: "chat" | "notifications" | "friends" | "feed" | null) => {
-    if (key === "notifications") return notifUnread;
-    if (key === "chat") return chatUnread;
-    if (key === "friends") return friendsUnread;
-    return 0;
-  };
-
+  const chatUnread = useChatStore((state) => state.totalUnread);
+  const notifUnread = useNotificationStore((state) => state.unreadCount);
   return (
-    <aside className="fixed left-0 top-0 z-40 hidden h-dvh w-[240px] flex-col border-r border-white/[0.06] bg-background-secondary lg:flex">
-      {/* Logo — static brand mark, never dynamic */}
-      <div className="flex h-16 items-center px-6 border-b border-white/[0.06] mb-4">
-        <div className="flex items-center gap-2 px-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 
-                          flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-bold text-sm font-display">H</span>
-          </div>
-          <span className="text-lg font-bold font-display bg-gradient-to-r from-purple-400 to-purple-600 
-                           bg-clip-text text-transparent">
-            HUDdang
-          </span>
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-4">
-        {navItems.map((item) => {
-          const isActive = pathname.startsWith(item.href);
-          const badgeCount = getBadgeCount(item.badgeKey);
-          const isActivity = item.badgeKey === "notifications";
-          
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "group flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all",
-                isActive
-                  ? "text-white border-l-[3px] border-purple-500 pl-[13px] bg-white/[0.05]"
-                  : "text-text-secondary hover:text-white hover:bg-white/[0.03] border-l-[3px] border-transparent"
-              )}
-            >
-              <div className="relative">
-                {isActivity ? (
-                  <motion.div
-                    animate={shouldShake ? "shake" : "default"}
-                    variants={bellVariants}
-                  >
-                    <item.icon
-                      className={cn(
-                        "h-5 w-5 shrink-0 transition-colors",
-                        isActive ? "text-accent" : "text-text-muted group-hover:text-text-secondary"
-                      )}
-                    />
-                  </motion.div>
-                ) : (
-                  <item.icon
-                    className={cn(
-                      "h-5 w-5 shrink-0 transition-colors",
-                      isActive ? "text-accent" : "text-text-muted group-hover:text-text-secondary"
-                    )}
-                  />
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-[240px] flex-col border-r border-border bg-background lg:flex">
+      <Link
+        href="/feed"
+        aria-label="Bakaiti home"
+        className="flex h-[72px] shrink-0 items-center gap-2.5 px-7"
+      >
+        <span className="flex h-9 w-9 -rotate-6 items-center justify-center rounded-xl bg-secondary text-on-secondary">
+          <MessageCircle className="h-5 w-5" strokeWidth={2.6} />
+        </span>
+        <span className="font-display text-[27px] font-bold tracking-[-0.065em]">
+          bakaiti<span className="text-secondary">.</span>
+        </span>
+      </Link>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-7">
+        <p className="app-eyebrow mb-3 px-3">Stay in the loop</p>
+        <nav aria-label="Main navigation" className="space-y-1.5">
+          {navItems.map(({ href, icon: Icon, label }) => {
+            const active = pathname === href || pathname.startsWith(`${href}/`);
+            const count =
+              href === "/chat"
+                ? chatUnread
+                : href === "/notifications"
+                  ? notifUnread
+                  : 0;
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={active ? "page" : undefined}
+                aria-label={count ? `${label}, ${count} unread` : label}
+                className={cn(
+                  "group flex min-h-12 items-center gap-3 rounded-xl px-3 text-[13px] font-semibold transition-colors active:scale-[0.99]",
+                  active
+                    ? "bg-accent text-on-primary"
+                    : "text-text-secondary hover:bg-surface-container hover:text-text-primary",
                 )}
-                {badgeCount > 0 && (
-                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-bold text-white shadow-lg shadow-accent/30">
-                    {badgeCount > 99 ? "99+" : badgeCount}
+              >
+                <Icon className="h-5 w-5" strokeWidth={active ? 2.2 : 1.8} />
+                <span className="flex-1">{label}</span>
+                {count > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "min-w-5 rounded-md px-1.5 py-0.5 text-center text-[10px] font-bold",
+                      active
+                        ? "bg-on-primary/15"
+                        : "bg-secondary text-on-secondary",
+                    )}
+                  >
+                    {count > 99 ? "99+" : count}
                   </span>
                 )}
-              </div>
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* User section */}
-      <div className="border-t border-white/[0.06] pt-4 p-3">
-        <div className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-surface">
-          <div className="relative flex flex-1 items-center gap-3 min-w-0">
-            <button
-              onClick={() => setPulsePickerOpen(!pulsePickerOpen)}
-              className="shrink-0 cursor-pointer"
-              title="Set your Pulse"
-            >
-              <UserAvatar
-                src={user?.avatar_url}
-                name={user?.display_name || "User"}
-                size="sm"
-                isOnline={true}
-                pulseType={myPulseType}
-              />
-            </button>
-            <Link
-              href={user ? `/profile/${user.username}` : "/feed"}
-              className="flex-1 overflow-hidden"
-            >
-              <p className="truncate text-sm font-medium text-text-primary">
-                {user?.display_name || "Loading..."}
-              </p>
-              <p className="truncate text-xs text-text-muted">
-                @{user?.username || "..."}
-              </p>
-            </Link>
-            {user && (
-              <PulsePicker
-                isOpen={pulsePickerOpen}
-                onClose={() => setPulsePickerOpen(false)}
-                currentPulse={myPulseType}
-                onSetPulse={updatePulse}
-                onClearPulse={removePulse}
-              />
-            )}
-          </div>
-
-          <div className="flex items-center gap-1">
-            <Link
-              href="/settings"
-              className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-surface-hover hover:text-text-secondary"
-              aria-label="Settings"
-            >
-              <Settings className="h-4 w-4" />
-            </Link>
-            <form action={signOut}>
-              <button
-                type="submit"
-                className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-surface-hover hover:text-error cursor-pointer"
-                aria-label="Sign out"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
-            </form>
-          </div>
+              </Link>
+            );
+          })}
+        </nav>
+        <Link
+          href="/friends"
+          className="mt-8 rounded-2xl border border-border p-4 transition-colors hover:border-accent/50 hover:bg-surface"
+        >
+          <Radio className="mb-3 h-5 w-5 text-secondary" />
+          <p className="font-display text-base font-semibold">
+            Same people.
+            <br />
+            New conversations.
+          </p>
+          <span className="mt-3 inline-flex items-center gap-2 text-xs text-text-secondary">
+            Find your circle <ArrowUpRight className="h-3.5 w-3.5" />
+          </span>
+        </Link>
+        <div className="mt-auto pt-8">
+          <Link
+            href="/settings"
+            aria-current={pathname.startsWith("/settings") ? "page" : undefined}
+            className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm text-text-secondary transition-colors hover:bg-surface hover:text-text-primary"
+          >
+            <Settings className="h-4.5 w-4.5" />
+            Settings
+          </Link>
+        </div>
+      </div>
+      <div className="border-t border-border p-4">
+        <div className="flex items-center gap-2">
+          <Link
+            href={user ? `/profile/${user.username}` : "/settings"}
+            className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1.5 transition-colors hover:bg-surface"
+          >
+            <UserAvatar
+              src={user?.avatar_url}
+              name={user?.display_name || "Your profile"}
+              size="sm"
+            />
+            <span className="min-w-0">
+              <span className="block truncate text-xs font-semibold">
+                {user?.display_name || "Your space"}
+              </span>
+              <span className="block truncate text-[11px] text-text-secondary">
+                {user ? `@${user.username}` : "Getting you connected…"}
+              </span>
+            </span>
+          </Link>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            disabled={signingOut}
+            title="Sign out"
+            aria-label={signingOut ? "Signing out" : "Sign out"}
+            className="flex h-11 w-11 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-error/10 hover:text-error disabled:opacity-50"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
       </div>
     </aside>

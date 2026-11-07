@@ -88,6 +88,14 @@ export async function acceptFriendRequest(friendshipId: string) {
   return { success: true };
 }
 
+export async function respondToFriendRequest(actorId: string, accept: boolean) {
+  const relationship = await getFriendshipStatus(actorId);
+  if (!relationship.friendshipId || relationship.status !== "pending" || relationship.isRequester) {
+    return { error: "This request is no longer available." };
+  }
+  return accept ? acceptFriendRequest(relationship.friendshipId) : rejectFriendRequest(relationship.friendshipId);
+}
+
 export async function rejectFriendRequest(friendshipId: string) {
   const supabase = await createClient();
   const {
